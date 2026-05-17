@@ -1,78 +1,305 @@
-import React, { useState, useRef } from "react";
-import { Upload, AlertTriangle, Menu, MapPin, X, ArrowRight } from "lucide-react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
+import { Upload, AlertTriangle, ArrowRight, ArrowLeft, Shield, FileText, CheckCircle, XCircle, RefreshCw, LayoutDashboard, Loader2 } from "lucide-react";
+import { supabase } from "./lib/supabase";
+import { jsPDF } from "jspdf";
 
-type ViewState = 'home' | 'upload' | 'results' | 'instructions';
+type ViewState = "home" | "upload" | "results" | "instructions" | "dashboard" | "chat";
+type Lang = "en" | "es" | "ht";
+
+const t = {
+  en: {
+    home: "Home", scan: "Scan", dashboard: "Dashboard", results: "Results", chat: "Chat",
+    title: "Primitive Shield",
+    hook: "85,000+ informal or illegal evictions", hookSub: "Occur in Miami-Dade County every year.",
+    problem: "Illegal by design.",
+    problemSub: "Informal evictions violate Florida Statute 83.56, which requires a formal 3-day notice and full court process. Landlords skip this to bypass tenant rights.",
+    problemStat1: "No valid notice given", problemStat2: "No court filing", problemStat3: "Illegal self-help methods",
+    solution: "Our Solution.",
+    solutionSub: "Primitive Shield cross-reference your notice against Florida Chapter 83 and the Fair Housing Act in seconds.",
+    solutionCTA: "Upload your notice now",
+    scanBtn: "Scan Document Now"
+  },
+  es: {
+    home: "Inicio", scan: "Escanear", dashboard: "Panel", results: "Resultados", chat: "Chat",
+    title: "Escudo Primitivo",
+    hook: "Más de 85,000 desalojos informales o ilegales", hookSub: "Ocurren en el condado de Miami-Dade cada año.",
+    problem: "Ilegal por diseño.",
+    problemSub: "Los desalojos informales violan el Estatuto 83.56 de Florida, que exige un aviso formal de 3 días y proceso judicial. Los propietarios se lo saltan para eludir la ley.",
+    problemStat1: "Sin aviso válido", problemStat2: "Sin presentación judicial", problemStat3: "Métodos ilegales",
+    solution: "Nuestra solución.",
+    solutionSub: "Primitive Shield contrasta su aviso con el Capítulo 83 de Florida y la Ley de Vivienda Justa en segundos.",
+    solutionCTA: "Sube tu aviso ahora",
+    scanBtn: "Escanear Documento Ahora"
+  },
+  ht: {
+    home: "Akey", scan: "Eskane", dashboard: "Dachbòd", results: "Rezilta", chat: "Chat",
+    title: "Pwotèksyon Primitif",
+    hook: "Plis pase 85,000 degèpisman enfòmèl oswa ilegal", hookSub: "Rive nan Miami-Dade County chak ane.",
+    problem: "Ilegal pa konsepsyon.",
+    problemSub: "Degèpisman enfòmèl vyole Estatì 83.56 nan Florid, ki egzije yon avi ekri 3 jou ak pwosesis tribinal. Propriyetè yo pa swiv sa pou kontourne lwa a.",
+    problemStat1: "Pa gen avi valid", problemStat2: "Pa gen depo tribinal", problemStat3: "Metòd ilegal",
+    solution: "Solisyon nou an.",
+    solutionSub: "Primitive Shield konpare avi ou ak Chapit 83 Florid ak Lwa Lojman Ekitab nan kèk segond.",
+    solutionCTA: "Telechaje avi ou kounye a",
+    scanBtn: "Eskane Dokiman Kounye a"
+  }
+};
 
 export default function App() {
-  const [view, setView] = useState<ViewState>('home');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [view, setView] = useState<ViewState>(() => (localStorage.getItem("shield_view") as ViewState) || "home");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<any | null>(() => {
+    const cached = localStorage.getItem("shield_result");
+    return cached ? JSON.parse(cached) : null;
+  });
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [language, setLanguage] = useState<Lang>(() => (localStorage.getItem("shield_lang") as Lang) || "en");
+  const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(() => localStorage.getItem("shield_scanned_image_url"));
+  const [scannedImageBase64, setScannedImageBase64] = useState<string | null>(() => localStorage.getItem("shield_scanned_image_base64"));
+  const [chatMessages, setChatMessages] = useState<any[]>(() => {
+    const cached = localStorage.getItem("shield_chat_messages");
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("shield_view", view);
+  }, [view]);
+
+  useEffect(() => {
+    if (result) {
+      localStorage.setItem("shield_result", JSON.stringify(result));
+    } else {
+      localStorage.removeItem("shield_result");
+    }
+  }, [result]);
+
+  useEffect(() => {
+    localStorage.setItem("shield_lang", language);
+  }, [language]);
+
+  useEffect(() => {
+    if (scannedImageUrl) {
+      localStorage.setItem("shield_scanned_image_url", scannedImageUrl);
+    } else {
+      localStorage.removeItem("shield_scanned_image_url");
+    }
+  }, [scannedImageUrl]);
+
+  useEffect(() => {
+    if (scannedImageBase64) {
+      localStorage.setItem("shield_scanned_image_base64", scannedImageBase64);
+    } else {
+      localStorage.removeItem("shield_scanned_image_base64");
+    }
+  }, [scannedImageBase64]);
+
+  useEffect(() => {
+    localStorage.setItem("shield_chat_messages", JSON.stringify(chatMessages));
+  }, [chatMessages]);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setPreview(URL.createObjectURL(selectedFile));
-      setResult(null);
-      setError(null);
-    }
+  const handleFileSelect = (selectedFile: File) => {
+    setFile(selectedFile);
+    setPreview(URL.createObjectURL(selectedFile));
+    setResult(null);
+    setError(null);
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) handleFileSelect(e.target.files[0]);
   };
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) handleFileSelect(droppedFile);
+  }, []);
 
   const resetUpload = () => {
     setFile(null);
     setPreview(null);
     setResult(null);
     setError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setScannedImageUrl(null);
+    setScannedImageBase64(null);
+    setChatMessages([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const navigateTo = (newView: ViewState) => {
-    setView(newView);
-    setIsMenuOpen(false);
+  const navigateTo = (v: ViewState) => {
+    setView(v);
     window.scrollTo(0, 0);
+  };
+
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith("image/")) {
+        resolve(file);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  const compressedFile = new File([blob], file.name, {
+                    type: "image/jpeg",
+                    lastModified: Date.now(),
+                  });
+                  resolve(compressedFile);
+                } else {
+                  resolve(file);
+                }
+              },
+              "image/jpeg",
+              0.85
+            );
+          } else {
+            resolve(file);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return;
-
     setIsLoading(true);
     setError(null);
     setResult(null);
-
-    const formData = new FormData();
-    formData.append("document", file);
-
     try {
+      if (!session) {
+        throw new Error("Please sign in to save and analyze your notice.");
+      }
+
+      // 1. Compress image & upload to Supabase Storage
+      const compressedFile = await compressImage(file);
+      const fileExt = compressedFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${session.user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('notices')
+        .upload(filePath, compressedFile);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL to pass to our database scans record
+      const { data: { publicUrl } } = supabase.storage
+        .from('notices')
+        .getPublicUrl(filePath);
+
+      setScannedImageUrl(publicUrl);
+
+      // Convert compressed image to base64 for fast and secure vision parsing
+      const base64String = await fileToBase64(compressedFile);
+      setScannedImageBase64(base64String);
+
+      // 2. Call our backend to trigger Groq analysis with the direct Base64 string
+      const langMap = { en: "English", es: "Spanish", ht: "Haitian Creole" };
       const response = await fetch("/api/analyze-notice", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ imageUrl: base64String, language: langMap[language] }),
       });
 
       if (!response.ok) {
-        let errorMsg = "Failed to analyze document";
-        try {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorMsg;
-        } catch { }
-        throw new Error(errorMsg);
+        let msg = "Analysis failed";
+        try { const d = await response.json(); msg = d.error || msg; } catch {}
+        throw new Error(msg);
       }
-
       const data = await response.json();
       setResult(data);
-      navigateTo('results');
+
+      // 3. Save the result to the scans table
+      await supabase.from('scans').insert({
+        user_id: session.user.id,
+        image_url: publicUrl,
+        status: data.status,
+        summary: data.summary_of_violations
+      });
+
+      setView("results");
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     } finally {
@@ -80,356 +307,651 @@ export default function App() {
     }
   };
 
-  const NavBar = () => (
-    <nav className="border-b border-black flex items-stretch h-16 sm:h-20 bg-[#FDFCF8] text-black shrink-0 relative z-50 w-full transition-colors duration-300">
-      <div 
-        className="flex-shrink-0 flex items-center px-4 sm:px-8 border-r border-black font-semibold text-xl sm:text-3xl tracking-tighter cursor-pointer hover:bg-[#F2F1EC] transition-colors"
-        onClick={() => navigateTo('home')}
-      >
-        Primitive Shield
-      </div>
-      <div className="hidden md:flex flex-grow items-center px-4 sm:px-8 text-sm sm:text-lg font-medium">
-        Technology for Housing Justice
-      </div>
-      <div className="ml-auto flex border-l border-black">
-         <button 
-            className="flex items-center px-4 sm:px-8 border-l border-black hover:bg-[#FF107A] hover:text-white transition-colors group"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-         >
-            <Menu className="w-5 h-5 sm:w-6 sm:h-6 mr-0 sm:mr-3 group-hover:scale-95 transition-transform" />
-            <span className="hidden sm:inline font-mono text-xs tracking-widest uppercase mt-0.5">Menu</span>
-         </button>
-      </div>
-    </nav>
-  );
+  const statusConfig: Record<string, { label: string; icon: React.ReactNode; accent: string }> = {
+    predatory: { label: "Predatory Notice Detected", icon: <XCircle className="w-8 h-8" />, accent: "border-red-500" },
+    legal: { label: "Notice Appears Valid", icon: <CheckCircle className="w-8 h-8" />, accent: "border-emerald-500" },
+    illegible: { label: "Document Not Readable", icon: <RefreshCw className="w-8 h-8" />, accent: "border-amber-500" },
+  };
 
-  return (
-    <div className="min-h-screen bg-[#FDFCF8] text-[#1D1D1D] font-sans selection:bg-[#FF107A] selection:text-white flex flex-col relative w-full">
-      <NavBar />
-      
-      {isMenuOpen && (
-        <div className="absolute top-16 sm:top-20 right-0 z-50 bg-[#1E1B4B] text-white flex flex-col items-start p-6 shadow-[4px_4px_0_0_#00DFE6] border border-black border-r-0 border-t-0 animate-in fade-in duration-200">
-          <div className="flex flex-col space-y-4 text-xl font-medium tracking-tight">
-            <button onClick={() => navigateTo('home')} className={`hover:text-[#00DFE6] transition-colors text-left ${view === 'home' ? 'text-[#FF107A]' : 'text-white'}`}>Home</button>
-            <button onClick={() => navigateTo('upload')} className={`hover:text-[#00DFE6] transition-colors text-left ${view === 'upload' ? 'text-[#FF107A]' : 'text-white'}`}>Scan Notice</button>
-            {result && <button onClick={() => navigateTo('results')} className={`hover:text-[#00DFE6] transition-colors text-left ${view === 'results' ? 'text-[#FF107A]' : 'text-white'}`}>Results</button>}
+  // ─── NAV ───
+  // ─── NAV ───
+  const NavBar = () => {
+    const [atBottom, setAtBottom] = React.useState(false);
+
+    React.useEffect(() => {
+      const handleScroll = () => {
+        const scrolledToBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 100;
+        setAtBottom(scrolledToBottom);
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    return (
+      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-neutral-200/60 shadow-sm relative">
+        <div className="max-w-6xl mx-auto flex items-center justify-between h-14 px-6 relative">
+          <button onClick={() => navigateTo("home")} className="flex items-center space-x-2 group shrink-0">
+            <Shield className="w-5 h-5 text-neutral-900 group-hover:text-neutral-600 transition-colors" />
+            <span className="font-semibold text-sm tracking-tight text-neutral-900 hidden sm:block">{t[language].title}</span>
+          </button>
+
+          {!atBottom && (
+            <div 
+              className="absolute left-1/2 -translate-x-1/2 flex justify-center items-center animate-bounce cursor-pointer text-neutral-400 hover:text-neutral-900 transition-colors"
+              onClick={() => window.scrollBy({ top: window.innerHeight * 0.8, behavior: 'smooth' })}
+            >
+              <ArrowRight className="w-5 h-5 rotate-90" />
+            </div>
+          )}
+
+          <div className="flex items-center space-x-4 sm:space-x-6 shrink-0">
+            <button onClick={() => navigateTo("home")} className={`text-sm transition-all ${view === "home" ? "font-bold text-neutral-900" : "font-medium text-neutral-500 hover:text-neutral-900"}`}>{t[language].home}</button>
+            <button onClick={() => navigateTo("upload")} className={`text-sm transition-all ${view === "upload" ? "font-bold text-neutral-900" : "font-medium text-neutral-500 hover:text-neutral-900"}`}>{t[language].scan}</button>
+            <button onClick={() => navigateTo("chat")} className={`text-sm transition-all ${view === "chat" ? "font-bold text-neutral-900" : "font-medium text-neutral-500 hover:text-neutral-900"}`}>{t[language].chat}</button>
+            {session && <button onClick={() => navigateTo("dashboard")} className={`text-sm transition-all ${view === "dashboard" ? "font-bold text-neutral-900" : "font-medium text-neutral-500 hover:text-neutral-900"}`}>{t[language].dashboard}</button>}
+            {result && <button onClick={() => navigateTo("results")} className={`text-sm transition-all ${view === "results" ? "font-bold text-neutral-900" : "font-medium text-neutral-500 hover:text-neutral-900"}`}>{t[language].results}</button>}
+            <select 
+              value={language} 
+              onChange={(e) => setLanguage(e.target.value as Lang)}
+              className="bg-transparent border-none text-neutral-500 font-semibold text-sm focus:outline-none cursor-pointer hover:text-neutral-900"
+            >
+              <option value="en">EN</option>
+              <option value="es">ES</option>
+              <option value="ht">HT</option>
+            </select>
           </div>
         </div>
-      )}
+      </nav>
+    );
+  };
 
-      <main className="flex-grow flex flex-col pb-24 sm:pb-28">
-        {view === 'home' && (
-          <div className="flex flex-col flex-grow animate-in fade-in duration-500">
-            {/* Hero Section */}
-            <section className="relative min-h-[calc(100vh-5rem)] w-full flex flex-col items-center border-b border-black overflow-hidden justify-center px-6 sm:px-12 text-center pt-24 sm:pt-32">
-              {/* Background Image */}
-              <div className="absolute inset-0 z-0">
-                <img 
-                  src="https://images.unsplash.com/photo-1503891450247-ee5f8ec46dc3?q=80&w=2000&auto=format&fit=crop" 
-                  alt="Miami Context" 
-                  className="w-full h-full object-cover mix-blend-luminosity brightness-50" 
-                />
-              </div>
-              
-              {/* Content Overlay */}
-              <div className="relative z-10 w-full max-w-6xl flex flex-col items-center mt-[-10vh]">
-                <h1 className="text-3xl sm:text-5xl md:text-6xl font-medium tracking-tight leading-[1.1]">
-                  <span className="text-[#FDFCF8] block mb-2 sm:mb-4">Predatory notices unjustly force people out.</span>
-                  <span className="text-[#00DFE6] block">Make sure you're not one of them.</span>
-                </h1>
-                
-                <div className="mt-16 sm:mt-32 pb-8 flex flex-col items-center justify-center">
-                  <div className="font-mono text-xs tracking-widest uppercase text-white mb-4 opacity-70">Scroll Down</div>
-                  <div className="animate-bounce">
-                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                    </svg>
+  // ─── HOME ───
+  const HomePage = () => {
+    return (
+      <div className="animate-fade-up">
+        {/* Chapter 1: The Hook */}
+        <section className="relative min-h-[75vh] flex flex-col justify-center overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <img
+              src="https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?q=80&w=2000&auto=format&fit=crop"
+              alt="Urban housing"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/80" />
+          </div>
+          <div className="relative z-10 max-w-4xl mx-auto px-6 w-full mt-[-5vh] flex flex-col items-center text-center">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-white tracking-tighter leading-[1] mb-6">
+              {t[language].hook}
+            </h1>
+            <p className="text-lg sm:text-2xl text-neutral-300 font-light leading-relaxed max-w-xl mb-10">
+              {t[language].hookSub}
+            </p>
+            <button
+              onClick={() => document.getElementById('chapter-3')?.scrollIntoView({ behavior: 'smooth' })}
+              className="inline-flex items-center text-white border border-white/20 px-8 py-4 rounded-none bg-transparent hover:bg-white hover:text-neutral-950 transition-colors backdrop-blur-md text-xs font-mono uppercase tracking-widest"
+            >
+              <span>Go to solution</span>
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        </section>
+
+        {/* Chapter 2: The Problem */}
+        <section id="chapter-2" className="relative bg-transparent text-neutral-900 py-28">
+          <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <div>
+              <span className="inline-block font-mono text-xs uppercase tracking-widest text-neutral-400 mb-4">The Problem</span>
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
+                {t[language].problem}
+              </h2>
+              <p className="text-lg text-neutral-600 leading-relaxed mb-10">
+                {t[language].problemSub}
+              </p>
+              <div className="grid grid-cols-3 gap-6">
+                {[t[language].problemStat1, t[language].problemStat2, t[language].problemStat3].map((stat, i) => (
+                  <div key={i} className="border-l border-neutral-950 pl-4 py-2">
+                    <p className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest leading-snug mb-1">0{i+1}</p>
+                    <p className="text-[11px] font-bold text-neutral-900 uppercase tracking-wider leading-snug">{stat}</p>
                   </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-none overflow-hidden border border-neutral-950 aspect-[4/5] shadow-sm">
+              <img
+                src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=1000&auto=format&fit=crop"
+                alt="Tenant reviewing legal documents"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Chapter 3: Our Solution — includes CTA */}
+        <section id="chapter-3" className="relative bg-neutral-950 text-white py-28 border-t border-b border-white/15">
+          <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <div className="rounded-none overflow-hidden border border-white/10 aspect-[4/5]">
+              <img
+                src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=1000&auto=format&fit=crop"
+                alt="Attorney reviewing tenant case"
+                className="w-full h-full object-cover opacity-90"
+              />
+            </div>
+            <div>
+              <span className="inline-block font-mono text-xs uppercase tracking-widest text-neutral-400 mb-4">Our Solution</span>
+              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
+                {t[language].solution}
+              </h2>
+              <p className="text-lg text-neutral-300 leading-relaxed mb-10">
+                {t[language].solutionSub}
+              </p>
+              <button
+                onClick={() => navigateTo("upload")}
+                className="inline-flex items-center group bg-white text-neutral-900 px-8 py-4 rounded-none hover:bg-neutral-100 transition-all text-xs font-mono uppercase tracking-widest"
+              >
+                <span>{t[language].solutionCTA}</span>
+                <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Disclaimer */}
+        <section className="max-w-5xl mx-auto px-6 py-12">
+          <div className="flex items-start space-x-4 border border-yellow-500 bg-yellow-400/10 text-yellow-900 p-6 rounded-none">
+            <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+            <p className="text-xs font-mono uppercase tracking-wide leading-relaxed">
+              <strong>Legal Disclaimer:</strong> Primitive Shield provides AI-powered analysis for informational purposes only. It is not a substitute for professional legal counsel. Always consult a licensed attorney for legal advice.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  // ─── UPLOAD ───
+  const UploadPage = () => (
+    <div className="animate-fade-up">
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
+          <div className="relative mb-8">
+            <div className="w-16 h-16 border-2 border-neutral-200 rounded-full" />
+            <div className="absolute inset-0 w-16 h-16 border-2 border-neutral-900 rounded-full border-t-transparent animate-spin" />
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 mb-2">Analyzing document</h2>
+          <p className="text-sm text-neutral-400 font-mono">Cross-referencing Miami-Dade Municipal Codes...</p>
+        </div>
+      ) : (
+        <div className="max-w-xl mx-auto px-6 py-16">
+          <button onClick={() => navigateTo("home")} className="flex items-center text-xs text-neutral-400 hover:text-neutral-900 transition-colors mb-8 group">
+            <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> Back
+          </button>
+
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-2">Scan your notice</h1>
+          <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
+            Upload a photo of the notice you received. We'll analyze it against current Miami-Dade housing law.
+          </p>
+          <button 
+            onClick={() => navigateTo("instructions")} 
+            className="mb-8 inline-flex items-center space-x-2 px-6 py-3 border border-neutral-950 bg-neutral-950 text-white text-xs font-mono uppercase tracking-widest rounded-none hover:bg-neutral-800 transition-colors shadow-sm"
+          >
+            <span>Tips for best results</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+
+            {!preview ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`border border-dashed border-neutral-300 rounded-none cursor-pointer transition-all p-16 flex flex-col items-center justify-center text-center group bg-neutral-50/20 hover:bg-neutral-50/40 hover:border-neutral-950`}
+              >
+                <div className="mb-4 text-neutral-400 group-hover:text-neutral-950 transition-colors">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-mono uppercase tracking-widest text-neutral-700 mb-1">
+                  {isDragging ? "Drop file here" : "Click to select or drag & drop"}
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">JPG or PNG — up to 4 MB</span>
+              </div>
+            ) : (
+              <div className="border border-neutral-950 p-6 rounded-none bg-neutral-50/20">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 rounded-none overflow-hidden bg-neutral-100 border border-neutral-300 flex-shrink-0 mr-4">
+                    <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="text-xs font-mono uppercase tracking-widest text-neutral-900 truncate">{file?.name}</p>
+                    <p className="text-[10px] font-mono text-neutral-400 mt-0.5">{(file ? file.size / 1024 / 1024 : 0).toFixed(2)} MB</p>
+                  </div>
+                  <button type="button" onClick={resetUpload} className="text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-red-500 transition-colors ml-4 shrink-0">Remove</button>
                 </div>
               </div>
-            </section>
+            )}
 
-            <section className="bg-[#1E1B4B] text-[#FDFCF8] px-6 sm:px-12 py-16 sm:py-28 flex flex-col items-center">
-              <h2 className="text-5xl sm:text-7xl font-medium tracking-tight mb-12 sm:mb-20 text-[#00DFE6]">We can help</h2>
-              <div className="max-w-md w-full border border-black bg-black">
-                 <div className="bg-[#FFF59D] text-[#1D1D1D] border border-black p-8 sm:p-10 flex flex-col items-center text-center min-h-[400px] hover:scale-105 transition-transform duration-300">
-                    <div className="font-mono text-xs tracking-widest uppercase mb-6 opacity-60">Notice Scanner</div>
-                    <h3 className="text-3xl sm:text-4xl font-medium leading-[1.1] mb-6 tracking-tight">Evaluate a notice from your landlord</h3>
-                    <p className="text-lg leading-relaxed mb-10 flex-grow opacity-90">
-                      Upload a photo of your notice or buyout offer. We'll cross-reference it with Miami-Dade rental laws to check for illegal demands.
-                    </p>
-                    <div className="justify-center text-xs font-mono uppercase tracking-widest text-[#1D1D1D] opacity-60 mb-8 flex items-center space-x-3">
-                      <MapPin className="w-4 h-4" />
-                      <span>Miami-Dade</span>
-                    </div>
-                    <button 
-                      onClick={() => navigateTo('upload')} 
-                      className="bg-[#FF107A] text-white rounded-full px-8 py-5 text-sm font-mono uppercase tracking-widest hover:bg-[#1E1B4B] transition-colors w-full sm:w-auto flex items-center justify-center group cursor-pointer border border-black"
-                    >
-                      <span>Start My Scan</span>
-                      <ArrowRight className="w-5 h-5 ml-4 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                 </div>
+            {error && (
+              <div className="bg-red-50/20 border border-red-500 rounded-none p-4 flex items-start space-x-3">
+                <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-xs font-mono uppercase tracking-wide text-red-755 leading-relaxed">{error}</p>
               </div>
-            </section>
+            )}
+
+            <button
+              type="submit"
+              disabled={!file}
+              className="w-full flex justify-center items-center py-4 px-4 text-xs font-mono uppercase tracking-widest text-white bg-neutral-950 hover:bg-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-none border border-neutral-950"
+            >
+              Analyze Notice
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── INSTRUCTIONS ───
+  const InstructionsPage = () => (
+    <div className="max-w-xl mx-auto px-6 py-16 animate-fade-up">
+      <button onClick={() => navigateTo("upload")} className="flex items-center text-xs text-neutral-400 hover:text-neutral-900 transition-colors mb-8 group">
+        <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> Back to Upload
+      </button>
+      <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-8">Tips for best results</h1>
+      <div className="space-y-4">
+        {[
+          "Find the legal document or notice you received from your landlord.",
+          "Place it on a flat, well-lit surface — avoid shadows and glare.",
+          "Take the photo straight-on, making sure all text is legible and the entire page is visible.",
+          "If possible, use a scanner app to create a high-resolution image.",
+          "Accepted formats: JPG or PNG up to 4 MB.",
+        ].map((step, i) => (
+          <div key={i} className="flex items-start space-x-4 p-5 rounded-none bg-neutral-50/40 border border-neutral-200">
+            <span className="font-mono text-xs font-bold text-neutral-950 shrink-0 mt-0.5">0{i + 1}.</span>
+            <p className="text-sm text-neutral-700 leading-relaxed">{step}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-10 flex items-start space-x-4 border border-neutral-950 bg-neutral-50/20 p-6 rounded-none">
+        <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+        <p className="text-xs font-mono uppercase tracking-wide leading-relaxed">
+          <strong>Disclaimer:</strong> Primitive Shield is not a substitute for professional legal counsel.
+        </p>
+      </div>
+    </div>
+  );
+
+  // ─── RESULTS ───
+  const ResultsPage = () => {
+    if (!result) return null;
+    const cfg = statusConfig[result.status] || statusConfig.illegible;
+
+    const generatePDF = () => {
+      const doc = new jsPDF();
+      const margin = 20;
+      let y = margin;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("TENANT RESPONSE TO INVALID NOTICE", margin, y);
+      y += 10;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(12);
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, y);
+      y += 10;
+      
+      doc.text("To: Landlord / Property Manager", margin, y);
+      y += 10;
+      
+      doc.text("From: Tenant", margin, y);
+      y += 15;
+
+      doc.setFont("helvetica", "bold");
+      doc.text("RE: Disputed Notice", margin, y);
+      y += 10;
+
+      doc.setFont("helvetica", "normal");
+      const intro = doc.splitTextToSize("I am writing to formally dispute the notice I recently received. Upon review, the notice appears to be in violation of Florida Chapter 83 and/or Miami-Dade Municipal Code for the following reasons:", 170);
+      doc.text(intro, margin, y);
+      y += intro.length * 7 + 5;
+
+      if (result.flagged_clauses) {
+        result.flagged_clauses.forEach((clause: any) => {
+          if (y > 270) { doc.addPage(); y = margin; }
+          doc.setFont("helvetica", "bold");
+          doc.text("Violation:", margin, y);
+          y += 7;
+          doc.setFont("helvetica", "normal");
+          const exp = doc.splitTextToSize(clause.explanation, 170);
+          doc.text(exp, margin, y);
+          y += exp.length * 7 + 5;
+        });
+      }
+
+      if (y > 250) { doc.addPage(); y = margin; }
+      const conclusion = doc.splitTextToSize("Because the notice is legally deficient, I demand that it be rescinded immediately. If you attempt a self-help eviction (e.g., changing locks, removing doors, or shutting off utilities), which is strictly prohibited under Florida Statute 83.67, I will pursue legal action for damages.", 170);
+      doc.text(conclusion, margin, y);
+      y += conclusion.length * 7 + 15;
+
+      doc.text("Sincerely,", margin, y);
+      y += 15;
+      doc.text("__________________________", margin, y);
+      y += 7;
+      doc.text("Tenant Signature", margin, y);
+
+      doc.save("tenant-defense-letter.pdf");
+    };
+
+    return (
+      <div className="animate-fade-up">
+        {/* Status Banner */}
+        <div className={`border-b-4 ${cfg.accent}`}>
+          <div className="max-w-5xl mx-auto px-6 py-12">
+            <div className="flex items-center space-x-3 mb-4">
+              <span className="text-neutral-900">{cfg.icon}</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-neutral-400">{result.status}</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 mb-4">{cfg.label}</h1>
+            <p className="text-lg text-neutral-600 leading-relaxed max-w-2xl">{result.summary_of_violations}</p>
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-5 gap-12">
+          {/* Left — Flagged Clauses */}
+          <div className="lg:col-span-3 space-y-8">
+            {result.flagged_clauses && result.flagged_clauses.length > 0 && (
+              <div>
+                <h2 className="text-xs font-mono uppercase tracking-widest text-neutral-400 mb-6">Flagged Clauses</h2>
+                <div className="space-y-6">
+                  {result.flagged_clauses.map((clause: any, i: number) => (
+                    <div key={i} className="border-t border-neutral-300 pt-6 pb-2 rounded-none">
+                      <div className="mb-3">
+                        <span className="inline-block bg-neutral-950 text-white text-[9px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-none">
+                          {clause.law_violated}
+                        </span>
+                      </div>
+                      <blockquote className="text-sm italic text-neutral-600 bg-neutral-50 p-4 mb-4 border-l border-neutral-400 font-serif">
+                        "{clause.excerpt}"
+                      </blockquote>
+                      <p className="text-sm text-neutral-600 leading-relaxed font-sans">{clause.explanation}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {result.status === "legal" && (
+              <div className="border border-emerald-500 bg-emerald-50/20 p-6 rounded-none">
+                <h2 className="text-xs font-mono uppercase tracking-widest text-emerald-800 mb-2">No Violations Detected</h2>
+                <p className="text-sm text-emerald-700 leading-relaxed">
+                  This notice does not display overt predatory markers against the evaluated statutes. However, legal terms can be complex. If you feel uncertain, consult one of the free legal resources listed in your action plan.
+                </p>
+              </div>
+            )}
+
+            {result.status === "illegible" && (
+              <div className="border border-amber-500 bg-amber-50/20 p-6 rounded-none">
+                <h2 className="text-xs font-mono uppercase tracking-widest text-amber-800 mb-2">We Couldn't Read This Document</h2>
+                <p className="text-sm text-amber-700 leading-relaxed mb-4">
+                  The image was too blurry, dark, or didn't appear to be a housing notice. Follow the steps in your action plan to re-upload a clearer version.
+                </p>
+                <button onClick={() => { resetUpload(); navigateTo("upload"); }} className="inline-flex items-center border border-neutral-950 bg-neutral-950 text-white text-xs font-mono uppercase tracking-widest px-6 py-3 rounded-none hover:bg-neutral-800 transition-colors shadow-sm">
+                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> Re-Upload Document
+                </button>
+              </div>
+            )}
+
+            {/* Chat with Your Notice Button */}
+            {scannedImageUrl && result.status !== "illegible" && (
+              <div className="mt-12 border border-neutral-300 p-8 text-center rounded-none bg-neutral-50/20">
+                <h3 className="text-xs font-mono uppercase tracking-widest text-neutral-900 mb-2">Have specific questions?</h3>
+                <p className="text-sm text-neutral-500 mb-6 leading-relaxed">Chat directly with an AI assistant about this notice.</p>
+                <button onClick={() => navigateTo("chat")} className="inline-flex items-center space-x-2 px-8 py-4 border border-neutral-950 bg-neutral-950 text-white font-mono uppercase tracking-widest text-xs rounded-none hover:bg-neutral-800 transition-colors shadow-sm">
+                  <span>Chat with your Notice</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Right — Action Plan */}
+          <div className="lg:col-span-2">
+            <div className="bg-neutral-950 text-white p-8 sticky top-20 border border-white/10 rounded-none shadow-sm">
+              <h2 className="text-xs font-mono uppercase tracking-widest text-neutral-400 mb-6 pb-4 border-b border-white/10">Your Action Plan</h2>
+              <ol className="space-y-5">
+                {(result.action_plan || []).map((step: string, i: number) => (
+                  <li key={i} className="flex items-start">
+                    <span className="font-mono text-xs font-bold text-white/55 mr-3 shrink-0 mt-0.5">0{i + 1}.</span>
+                    <span className="text-sm leading-relaxed text-white/80">{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+                {result.status === "predatory" && (
+                  <button onClick={generatePDF} className="w-full border border-red-600 bg-red-600 text-white text-xs font-mono uppercase tracking-widest py-3.5 rounded-none hover:bg-red-700 transition-colors">
+                    Generate Defense Letter (PDF)
+                  </button>
+                )}
+                <button onClick={() => { resetUpload(); navigateTo("upload"); }} className="w-full border border-white bg-white text-neutral-900 text-xs font-mono uppercase tracking-widest py-3.5 rounded-none hover:bg-neutral-100 transition-colors">
+                  Scan Another Notice
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── DASHBOARD ───
+  const DashboardPage = () => {
+    const [scans, setScans] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      if (session) {
+        supabase
+          .from('scans')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (data) setScans(data);
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
+      }
+    }, [session]);
+
+    if (!session) {
+      return (
+        <div className="max-w-2xl mx-auto px-6 py-24 text-center">
+          <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">Sign in required</h2>
+          <p className="text-neutral-500 mb-8 leading-relaxed">You must be signed in to view your scan history.</p>
+          <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">Sign In with Google</button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-fade-up max-w-5xl mx-auto px-6 py-24">
+        <div className="flex items-center justify-between mb-12">
+          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 flex items-center">
+            <LayoutDashboard className="w-8 h-8 mr-4" />
+            Your Scans
+          </h1>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-neutral-300" /></div>
+        ) : scans.length === 0 ? (
+          <div className="text-center py-20 bg-neutral-50/20 border border-neutral-300 rounded-none">
+            <p className="text-neutral-500 mb-4">You haven't scanned any notices yet.</p>
+            <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">Scan a Document</button>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            {scans.map((scan) => (
+              <div key={scan.id} className="bg-white border border-neutral-300 rounded-none p-6 hover:border-neutral-900 transition-colors">
+                <div className="flex justify-between items-start mb-4">
+                  <span className={`px-2.5 py-0.5 text-[9px] font-mono border uppercase tracking-widest rounded-none ${scan.status === "predatory" ? "bg-red-50 border-red-500 text-red-700" : scan.status === "legal" ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-neutral-50 border-neutral-500 text-neutral-700"}`}>
+                    {scan.status}
+                  </span>
+                  <span className="text-xs text-neutral-400 font-mono">{new Date(scan.created_at).toLocaleDateString()}</span>
+                </div>
+                <p className="text-sm text-neutral-600 line-clamp-3">{scan.summary}</p>
+              </div>
+            ))}
           </div>
         )}
+      </div>
+    );
+  };
 
-        {view === 'upload' && (
-        <div className="flex flex-col flex-grow bg-[#FDFCF8] items-center animate-in fade-in duration-300">
-           {isLoading ? (
-             <div className="flex-grow flex flex-col items-center justify-center p-6 text-center min-h-[70vh]">
-               <div className="relative mb-8">
-                 <div className="w-24 h-24 border-4 border-dashed border-[#1D1D1D] rounded-full animate-[spin_4s_linear_infinite]"></div>
-                 <div className="absolute inset-0 border-4 border-solid border-[#FF107A] rounded-full border-t-transparent animate-spin"></div>
-               </div>
-               <h2 className="text-4xl sm:text-5xl font-medium tracking-tight mb-4 text-[#1D1D1D]">Analyzing Document</h2>
-               <p className="font-mono text-sm tracking-widest uppercase text-neutral-500">Cross-referencing Miami-Dade Municipal Codes...</p>
-             </div>
-           ) : (
-             <>
-               <div className="border-b border-black py-12 px-6 sm:px-12 bg-[#00DFE6] text-[#1E1B4B] w-full flex flex-col items-center text-center">
-                  <div className="max-w-3xl">
-                     <h1 className="text-4xl sm:text-5xl font-medium tracking-tight mb-4 text-[#1E1B4B]">Scan your notice</h1>
-                     <p className="text-xl opacity-90 leading-snug">
-                       Take a clear photo of the letter or notice you received. We'll extract the text and check it against current laws.
-                       <button onClick={() => navigateTo('instructions')} className="ml-2 underline text-[#FF107A] hover:text-[#1D1D1D]">See instructions</button>
-                     </p>
-                  </div>
-               </div>
-               <div className="p-6 sm:p-12 max-w-2xl w-full flex flex-col items-center">
-                   <form onSubmit={handleSubmit} className="space-y-8 w-full">
-                     <div>
-                       <div className="flex justify-between items-end mb-4">
-                         <label className="block text-2xl font-medium text-[#1E1B4B]">Upload Document</label>
-                         {file && (
-                           <button type="button" onClick={resetUpload} className="text-sm font-mono tracking-widest uppercase text-neutral-500 hover:text-[#FF107A]">
-                             Clear Selection
-                           </button>
-                         )}
-                       </div>
-
-                       <input
-                         type="file"
-                         accept="image/*,.pdf"
-                         ref={fileInputRef}
-                         onChange={handleFileChange}
-                         className="hidden"
-                       />
-
-                       {!preview ? (
-                         <div
-                           onClick={handleUploadClick}
-                           className="border-[3px] border-dashed border-[#1E1B4B] bg-[#FFF59D] hover:bg-[#FFF59D]/80 cursor-pointer transition-colors p-12 sm:p-20 flex flex-col items-center justify-center text-center group"
-                         >
-                           <div className="bg-[#1E1B4B] text-white p-4 rounded-full mb-6 group-hover:scale-110 group-hover:bg-[#FF107A] transition-all">
-                             <Upload className="w-8 h-8" />
-                           </div>
-                           <span className="text-2xl font-medium mb-3 text-[#1E1B4B] group-hover:text-[#FF107A] transition-colors">Select file or take photo</span>
-                           <span className="text-[#1E1B4B]/60 font-mono text-sm uppercase tracking-widest">JPG, PNG, or PDF</span>
-                         </div>
-                       ) : (
-                         <div className="border border-black overflow-hidden flex flex-col sm:flex-row bg-[#FFF59D]">
-                           <div className="bg-white flex items-center justify-center sm:w-1/3 aspect-square sm:aspect-auto sm:min-h-[250px] relative border-b sm:border-b-0 sm:border-r border-black p-4">
-                             <img
-                               src={preview}
-                               alt="Document preview"
-                               className="max-h-full max-w-full object-contain shadow-sm border border-neutral-200"
-                             />
-                           </div>
-                           <div className="p-8 sm:w-2/3 flex flex-col justify-center">
-                             <p className="text-2xl font-medium text-[#1E1B4B] mb-2 truncate" title={file?.name}>
-                               {file?.name}
-                             </p>
-                             <p className="text-lg text-[#1E1B4B]/60 font-mono uppercase">
-                               {file ? (file.size / 1024 / 1024).toFixed(2) : "0"} MB
-                             </p>
-                             <div className="mt-8 flex">
-                               <button
-                                 type="button"
-                                 onClick={handleUploadClick}
-                                 className="border border-[#1E1B4B] rounded-full px-6 py-2 text-xs font-mono uppercase tracking-widest hover:bg-[#FF107A] hover:text-white hover:border-[#FF107A] transition-colors mr-3 text-[#1E1B4B]"
-                               >
-                                 Replace File
-                               </button>
-                             </div>
-                           </div>
-                         </div>
-                       )}
-                     </div>
-
-                     {error && (
-                       <div className="bg-[#1E1B4B] text-white p-5 border-l-4 border-[#FF107A] text-lg shadow-[4px_4px_0_0_#FF107A]">
-                         {error}
-                       </div>
-                     )}
-
-                     <div className="pt-6">
-                       <button
-                         type="submit"
-                         disabled={!file}
-                         className="w-full flex justify-center items-center py-6 px-4 text-lg font-mono uppercase tracking-widest text-white bg-[#1E1B4B] hover:bg-[#FF107A] disabled:opacity-50 disabled:hover:bg-[#1E1B4B] disabled:cursor-not-allowed transition-colors border border-black shadow-[4px_4px_0_0_#FFF59D]"
-                       >
-                         Scan Notice Now
-                       </button>
-                     </div>
-                   </form>
-               </div>
-             </>
-           )}
+  // ─── CHAT PAGE ───
+  const ChatPage = () => {
+    if (!scannedImageUrl) {
+      return (
+        <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
+          <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">No Document Found</h2>
+          <p className="text-neutral-500 mb-8 leading-relaxed">Please scan a document first to use the chat assistant.</p>
+          <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">Scan Document</button>
         </div>
-      )}
+      );
+    }
 
-      {view === 'instructions' && (
-        <div className="flex flex-col flex-grow bg-[#FDFCF8] items-center p-6 sm:p-12 animate-in fade-in duration-300">
-           <div className="max-w-2xl w-full">
-             <button onClick={() => navigateTo('upload')} className="mb-8 font-mono text-xs tracking-widest uppercase hover:text-[#FF107A] transition-colors flex items-center">
-               <ArrowRight className="w-4 h-4 mr-2 rotate-180" /> Back to Upload
-             </button>
-             <h1 className="text-4xl font-medium mb-8 text-[#1E1B4B]">How to scan your notice</h1>
-             <div className="space-y-6 text-lg text-[#1D1D1D] opacity-90">
-               <p><strong className="text-[#FF107A]">Step 1:</strong> Find the legal document or notice you received.</p>
-               <p><strong className="text-[#FF107A]">Step 2:</strong> Ensure you are in a well-lit area.</p>
-               <p><strong className="text-[#FF107A]">Step 3:</strong> Flatten the document to avoid shadows or glare.</p>
-               <p><strong className="text-[#FF107A]">Step 4:</strong> Take a clear photo, making sure all text is legible.</p>
-               <p><strong className="text-[#FF107A]">Step 5:</strong> Upload the photo (JPG, PNG) or a PDF version directly here.</p>
-             </div>
-             <div className="mt-12 bg-[#FF107A]/10 border border-[#FF107A]/30 p-5 rounded-none flex items-start shadow-[4px_4px_0_0_#FF107A]">
-               <AlertTriangle className="min-w-6 mr-4 text-[#FF107A] mt-0.5"/>
-               <span className="text-[#1E1B4B] leading-relaxed text-base">
-                 <strong className="font-medium mr-2 text-[#FF107A]">Important Legal Disclaimer:</strong> Primitive Shield is not a substitute for professional legal counsel.
-               </span>
-             </div>
-           </div>
+    return (
+      <div className="animate-fade-up max-w-4xl mx-auto px-6 py-12 flex flex-col h-[85vh]">
+        <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-neutral-400 hover:text-neutral-900 transition-colors mb-6 group w-fit">
+          <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> Back to Results
+        </button>
+
+        <div className="bg-white border border-neutral-950 rounded-none flex flex-col flex-1">
+          <div className="bg-neutral-950 text-white p-6 flex justify-between items-center shrink-0">
+            <div>
+              <h1 className="text-xs font-mono uppercase tracking-widest text-neutral-400">Notice Assistant</h1>
+              <h2 className="text-xl font-bold mt-1">Chat Assistant</h2>
+            </div>
+            <div className="w-16 h-16 rounded-none overflow-hidden border border-white/20 shrink-0">
+              <img src={scannedImageUrl} alt="Scanned Document" className="w-full h-full object-cover" />
+            </div>
+          </div>
+          <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-neutral-50 flex flex-col">
+            {chatMessages.length === 0 && (
+              <div className="m-auto text-center animate-fade-up">
+                <div className="w-16 h-16 bg-white border border-neutral-950 rounded-none flex items-center justify-center mx-auto mb-4">
+                  <Shield className="w-8 h-8 text-neutral-350" />
+                </div>
+                <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-900 mb-2">How can I help you?</h3>
+                <p className="text-sm text-neutral-500 max-w-sm">Ask about deadlines, legal terms, or what to do next based on the document you uploaded.</p>
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-none px-5 py-4 border text-[14px] leading-relaxed ${msg.role === 'user' ? 'bg-neutral-950 border-neutral-950 text-white' : 'bg-white border-neutral-300 text-neutral-800'}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-neutral-350 text-neutral-800 flex items-center space-x-3 shadow-none">
+                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                  <span className="text-neutral-500 font-mono text-xs uppercase tracking-widest">Reviewing Florida law...</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="p-4 bg-white border-t border-neutral-200 shrink-0">
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!chatInput.trim() || chatLoading) return;
+                const userMsg = { role: "user", content: chatInput };
+                setChatMessages(prev => [...prev, userMsg]);
+                setChatInput("");
+                setChatLoading(true);
+
+                try {
+                  const langMap = { en: "English", es: "Spanish", ht: "Haitian Creole" };
+                  const res = await fetch("/api/chat-notice", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      imageUrl: scannedImageBase64 || scannedImageUrl,
+                      messages: [...chatMessages, userMsg],
+                      language: langMap[language]
+                    })
+                  });
+                  if (!res.ok) throw new Error("Chat failed.");
+                  const data = await res.json();
+                  setChatMessages(prev => [...prev, { role: "assistant", content: data.answer }]);
+                } catch (err) {
+                  setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, an error occurred while processing your question." }]);
+                } finally {
+                  setChatLoading(false);
+                }
+              }} 
+              className="flex space-x-3"
+            >
+              <input 
+                type="text" 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about your notice..."
+                className="flex-1 border border-neutral-950 rounded-none px-5 py-4 text-sm focus:outline-none focus:bg-neutral-50/30 transition-all font-mono"
+              />
+              <button type="submit" disabled={chatLoading} className="border border-neutral-950 bg-neutral-950 text-white px-8 py-4 rounded-none text-xs font-mono uppercase tracking-widest hover:bg-neutral-900 disabled:opacity-50 transition-colors shrink-0">
+                Send
+              </button>
+            </form>
+          </div>
         </div>
-      )}
+      </div>
+    );
+  };
 
-      {view === 'results' && result && (
-        <div className="flex flex-col flex-grow bg-[#FDFCF8] animate-in slide-in-from-bottom-8 duration-500">
-           {/* Dynamic Banner based on result */}
-           <div className={`border-b border-black py-16 px-6 sm:px-12 ${
-               result.status === 'predatory' ? 'bg-[#FF107A] text-white' : 
-               result.status === 'legal' ? 'bg-[#00DFE6] text-[#1E1B4B]' : 
-               'bg-[#FFF59D] text-[#1E1B4B]'
-           }`}>
-              <div className="max-w-6xl">
-                 <div className="font-mono text-sm tracking-widest uppercase mb-6 flex justify-between items-center w-full opacity-80">
-                    <span>Scan Results: {result.status}</span>
-                    <button onClick={() => navigateTo('home')} className="border border-current px-4 py-2 rounded-full hover:bg-black hover:text-white transition-colors bg-transparent border-opacity-30">
-                      Back to Home
-                    </button>
-                 </div>
-                 <h1 className="text-5xl sm:text-8xl font-medium tracking-tight leading-[0.95] mb-6">
-                   {result.status === 'predatory' ? "Predatory Activity Detected" : 
-                    result.status === 'legal' ? "No Immediate Violations Found" :
-                    "Document Unclear"}
-                 </h1>
-                 <p className="text-2xl sm:text-3xl max-w-3xl font-medium mt-8 leading-snug border-l-4 border-current pl-6 opacity-90">
-                    {result.summary_of_violations}
-                 </p>
-              </div>
-           </div>
-
-           <div className="p-6 sm:p-12 max-w-7xl w-full grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-16">
-              <div className="lg:col-span-2 space-y-12">
-                {result.flagged_clauses && result.flagged_clauses.length > 0 && (
-                   <div>
-                      <h2 className="text-4xl font-medium border-b-2 border-black pb-4 mb-8">Flagged Clauses</h2>
-                      <div className="space-y-8">
-                        {result.flagged_clauses.map((clause: any, index: number) => (
-                           <div key={index} className="border border-black p-6 sm:p-8 bg-white relative overflow-hidden">
-                              <div className="absolute top-0 left-0 w-2 h-full bg-[#1D1D1D]"></div>
-                              <div className="bg-neutral-100 p-6 font-serif text-xl sm:text-2xl italic leading-relaxed mb-6 border border-neutral-300">
-                                "{clause.excerpt}"
-                              </div>
-                              <div className="items-center mb-4">
-                                <span className="inline-block bg-[#1D1D1D] text-white font-mono text-xs uppercase tracking-widest px-3 py-1.5 mb-2">
-                                  Violates: {clause.law_violated}
-                                </span>
-                              </div>
-                              <p className="text-xl leading-relaxed">{clause.explanation}</p>
-                           </div>
-                        ))}
-                      </div>
-                   </div>
-                )}
-
-                {/* If legal, give positive text */}
-                {result.status === 'legal' && (
-                  <div>
-                    <h2 className="text-4xl font-medium border-b-2 border-black pb-4 mb-8">Legal Standing</h2>
-                    <p className="text-xl leading-relaxed bg-white border border-black p-8 shadow-[8px_8px_0_0_#00DFE6]">
-                      Based on our analysis of the uploaded document against Miami-Dade ordinances, this notice does not immediately display overt predatory markers or explicit violations of the evaluated statutes. However, terms can be legally complex. If you feel threatened or unsure, always consult a professional. 
-                    </p>
-                  </div>
-                )}
-                
-                {/* If illegible */}
-                {result.status === 'illegible' && (
-                  <div>
-                    <h2 className="text-4xl font-medium border-b-2 border-black pb-4 mb-8">Next Steps</h2>
-                    <p className="text-xl leading-relaxed bg-white border border-black p-8 shadow-[8px_8px_0_0_#FFF59D]">
-                      We couldn't clearly read the document or it didn't seem to relate to housing notices. Please try uploading a clearer image or a digital PDF version of the document for accurate evaluation.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="lg:col-span-1">
-                 <div className="bg-[#1E1B4B] text-[#FDFCF8] border border-black p-8 sm:p-10 sticky top-8">
-                   <h2 className="text-3xl font-medium mb-10 pb-4 border-b border-white/20 text-[#00DFE6]">Action Plan</h2>
-                   <ul className="space-y-8">
-                     {(result.action_plan || []).map((step: string, i: number) => (
-                        <li key={i} className="flex items-start">
-                           <span className="font-mono text-sm bg-[#FF107A] text-white px-2.5 py-1 rounded-sm mr-4 mt-1 font-bold">{i+1}</span>
-                           <span className="text-lg leading-snug text-white/90">{step}</span>
-                        </li>
-                     ))}
-                   </ul>
-                   {result.status === 'predatory' && (
-                     <div className="mt-12 pt-8 border-t border-white/20">
-                        <button className="w-full bg-[#00DFE6] text-[#1E1B4B] border border-transparent rounded-full px-6 py-4 uppercase text-xs font-mono tracking-widest hover:bg-[#FF107A] hover:text-white transition-colors focus:ring-4 focus:ring-[#00DFE6]/20 shadow-lg font-bold">
-                          Draft PDF Defense
-                        </button>
-                        <p className="font-mono py-4 text-xs tracking-widest text-[#00DFE6]/50 uppercase text-center w-full">Coming Soon</p>
-                     </div>
-                   )}
-                   {result.status === 'illegible' && (
-                     <div className="mt-12 pt-8 border-t border-white/20">
-                        <button onClick={() => navigateTo('upload')} className="w-full bg-white text-[#1E1B4B] border border-transparent rounded-full px-6 py-4 uppercase text-xs font-mono tracking-widest hover:bg-neutral-200 transition-colors shadow-lg font-bold">
-                          Re-Upload
-                        </button>
-                     </div>
-                   )}
-                 </div>
-              </div>
-           </div>
-        </div>
-      )}
+  return (
+    <div className="min-h-screen bg-white bg-grid-pattern text-neutral-900 font-sans relative">
+      <NavBar />
+      <main>
+        {view === "home" && <HomePage />}
+        {view === "upload" && <UploadPage />}
+        {view === "instructions" && <InstructionsPage />}
+        {view === "results" && <ResultsPage />}
+        {view === "dashboard" && <DashboardPage />}
+        {view === "chat" && <ChatPage />}
       </main>
+      <footer className="border-t border-neutral-100 py-8 px-6">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 pb-16">
+          <span>© 2026 Primitive Shield — Miami-Dade Housing Justice</span>
+          <span className="mt-2 sm:mt-0">Not legal advice. Consult a licensed attorney.</span>
+        </div>
+      </footer>
 
       {/* Persistent Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 border-t border-black bg-[#1E1B4B] text-[#FDFCF8] py-2 sm:py-3 px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between z-50">
-        <div className="font-medium text-sm sm:text-base mb-2 sm:mb-0 text-[#00DFE6]">
-          Do you want to save your progress?
-        </div>
-        <button 
-          className="bg-white text-[#1E1B4B] font-medium px-4 py-2 hover:bg-[#FFF59D] transition-colors flex items-center space-x-2 cursor-pointer shadow-[2px_2px_0_0_#FF107A] border border-black text-sm"
-          onClick={() => {
-            // Mock sign in - this would integrate with Firebase Auth
-            alert("Redirecting to Google Sign-In...");
-          }}
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-            <path d="M1 1h22v22H1z" fill="none"/>
-          </svg>
-          <span className="uppercase font-mono text-xs tracking-widest font-bold">Sign In with Google</span>
-        </button>
-      </footer>
+      {!session && (
+        <footer className="fixed bottom-0 left-0 right-0 border-t border-neutral-200 bg-white/90 backdrop-blur-md py-3 px-6 flex flex-col sm:flex-row items-center justify-between z-50 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)]">
+          <div className="font-mono text-xs uppercase tracking-widest text-neutral-900 mb-2 sm:mb-0">
+            Sign in to securely save and analyze your notices.
+          </div>
+          <button 
+            className="bg-white text-neutral-900 font-mono text-xs uppercase tracking-widest px-6 py-3 hover:bg-neutral-100 transition-colors flex items-center space-x-2 border border-neutral-950 rounded-none"
+            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              <path d="M1 1h22v22H1z" fill="none"/>
+            </svg>
+            <span>Sign In with Google</span>
+          </button>
+        </footer>
+      )}
     </div>
   );
 }
