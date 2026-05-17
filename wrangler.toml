@@ -16,3 +16,4 @@ workers_dev = false
 [[routes]]
 pattern = "shield.primitive.org"
 custom_domain = true
+zone_name = "primitive.org"  # Resolves: "Can't infer zone from route, please specify zone"
