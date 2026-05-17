@@ -1,0 +1,6 @@
+{
+  "name": "Primitive Shield",
+  "description": "An educational legal-aid routing tool for Miami residents to verify if a notice from a landlord follows Miami-Dade tenant protection laws.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
