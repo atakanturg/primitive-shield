@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import multer from "multer";
 import dotenv from "dotenv";
+import pdfParse from "pdf-parse";
 
 dotenv.config();
 
@@ -69,6 +70,44 @@ function parseBase64Image(imageUrl: string): { mimeType: string; base64Data: str
   return { mimeType, base64Data };
 }
 
+function isPDF(imageUrl: string, contentType?: string): boolean {
+  if (!imageUrl) return false;
+  if (contentType && contentType.toLowerCase().includes("application/pdf")) {
+    return true;
+  }
+  if (imageUrl.startsWith("data:application/pdf;base64,")) {
+    return true;
+  }
+  // Strip URI schema and check magic number (JVBERi represents %PDF)
+  const clean = imageUrl.replace(/^data:[^;]+;base64,/, "");
+  if (clean.startsWith("JVBERi")) {
+    return true;
+  }
+  if (imageUrl.toLowerCase().split('?')[0].endsWith(".pdf")) {
+    return true;
+  }
+  return false;
+}
+
+async function extractTextFromPDF(imageUrl: string): Promise<string> {
+  let pdfBuffer: Buffer;
+  if (imageUrl.startsWith("http:") || imageUrl.startsWith("https:")) {
+    console.log("Fetching PDF from URL:", imageUrl);
+    const res = await fetch(imageUrl);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch PDF from URL: ${res.statusText}`);
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    pdfBuffer = Buffer.from(arrayBuffer);
+  } else {
+    // Base64 string
+    const cleanBase64 = imageUrl.replace(/^data:[^;]+;base64,/, "");
+    pdfBuffer = Buffer.from(cleanBase64, "base64");
+  }
+  const parsedData = await pdfParse(pdfBuffer);
+  return parsedData.text || "";
+}
+
 async function getGeminiPart(imageUrl: string): Promise<any> {
   if (!imageUrl) {
     throw new Error("No image data provided to AI parser.");
@@ -115,19 +154,33 @@ async function startServer() {
       const { imageUrl, language = 'English' } = req.body;
       
       if (!imageUrl) {
-        return res.status(400).json({ error: "No image URL provided." });
+        return res.status(400).json({ error: "No image/document data provided." });
       }
       if (!process.env.GEMINI_API_KEY) {
         return res.status(500).json({ error: "Gemini API key is not configured." });
       }
 
-      console.log(`Starting Gemini Vision Analysis (${language})...`);
+      const pdfDetected = isPDF(imageUrl);
+      let extractedText = "";
+
+      if (pdfDetected) {
+        console.log("PDF notice detected! Extracting text contents server-side...");
+        try {
+          extractedText = await extractTextFromPDF(imageUrl);
+          console.log(`Successfully extracted ${extractedText.length} characters of text from PDF notice.`);
+        } catch (pdfErr: any) {
+          console.error("Failed to parse PDF text:", pdfErr);
+          throw new Error(`Failed to extract text from PDF notice: ${pdfErr.message}`);
+        }
+      }
+
+      console.log(`Starting Gemini Notice Analysis (${language}, Mode: ${pdfDetected ? "PDF Text" : "Multimodal Vision"})...`);
 
       const triagePrompt = `
 You are a housing law evaluator assisting Miami-Dade tenants protect their rights.
 CRITICAL INSTRUCTION: You MUST translate ALL output into ${language}. The entire JSON response (summary, clauses, action plan) must be in ${language}.
 
-Analyze the uploaded document image and evaluate it against the following local laws and resources:
+${pdfDetected ? `Analyze the following extracted notice document text and evaluate it against our laws and resources:\n\nDOCUMENT TEXT CONTENT:\n"""\n${extractedText}\n"""` : "Analyze the uploaded document image and evaluate it against the following local laws and resources:"}
 
 MIAMI-DADE LAWS:
 ${MIAMI_LAWS}
@@ -142,7 +195,7 @@ INSTRUCTIONS:
 Determine the document status — it must be exactly one of three values:
 
 PATH 1 — "illegible":
-Use this if the document text cannot be read clearly, the image is too blurry/dark, or the content is completely unrelated to housing or tenancy.
+Use this if the document text cannot be read clearly, the image is too blurry/dark, or the content is completely unrelated to housing or tenancy. (If we parsed the PDF successfully and found text, status should almost never be "illegible" unless the text itself is completely blank or gibberish).
 Action plan for illegible: The model should say re-upload. Provide 8 steps focusing on how to re-upload a clearer image. Steps should include: ensuring good lighting, flattening the document, using a scanner app, checking focus, capturing the entire page, why clarity is needed for legal review, trying a different file format (PDF), and attempting to re-upload.
 
 PATH 2 — "legal":
@@ -185,7 +238,28 @@ OUTPUT FORMAT — Return ONLY a valid JSON object, no markdown formatting, no co
 There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty array [] if status is "illegible" or "legal".
 `;
 
-      const imagePart = await getGeminiPart(imageUrl);
+      let contents;
+      if (pdfDetected) {
+        contents = [
+          {
+            role: "user",
+            parts: [
+              { text: triagePrompt }
+            ]
+          }
+        ];
+      } else {
+        const imagePart = await getGeminiPart(imageUrl);
+        contents = [
+          {
+            role: "user",
+            parts: [
+              { text: triagePrompt },
+              imagePart
+            ]
+          }
+        ];
+      }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: "POST",
@@ -193,15 +267,7 @@ There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty ar
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: triagePrompt },
-                imagePart
-              ]
-            }
-          ],
+          contents,
           generationConfig: {
             responseMimeType: "application/json",
           }
@@ -245,7 +311,19 @@ There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty ar
         return res.status(500).json({ error: "Gemini API key is not configured." });
       }
 
-      console.log(`Starting Gemini Chat Analysis (${language})...`);
+      const pdfDetected = isPDF(imageUrl);
+      let extractedText = "";
+
+      if (pdfDetected) {
+        console.log("PDF notice detected in chat! Extracting text contents server-side...");
+        try {
+          extractedText = await extractTextFromPDF(imageUrl);
+        } catch (pdfErr: any) {
+          console.error("Failed to parse PDF text in chat:", pdfErr);
+        }
+      }
+
+      console.log(`Starting Gemini Chat Analysis (${language}, Mode: ${pdfDetected ? "PDF Text" : "Multimodal Vision"})...`);
 
       const systemPrompt = `
 You are a tenant rights legal assistant for Miami-Dade County. The user has uploaded an eviction notice.
@@ -260,23 +338,35 @@ FREE LEGAL RESOURCES:
 ${FREE_LEGAL_RESOURCES}
 `;
 
-      const imagePart = await getGeminiPart(imageUrl);
-
       const formattedHistory = messages.map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }]
       }));
 
-      const contents = [
-        {
-          role: "user",
-          parts: [
-            { text: "Here is the document we are discussing:" },
-            imagePart
-          ]
-        },
-        ...formattedHistory
-      ];
+      let contents;
+      if (pdfDetected) {
+        contents = [
+          {
+            role: "user",
+            parts: [
+              { text: `Here is the text content extracted from the uploaded PDF notice that we are discussing:\n\nDOCUMENT TEXT CONTENT:\n\"\"\"\n${extractedText}\n\"\"\"` }
+            ]
+          },
+          ...formattedHistory
+        ];
+      } else {
+        const imagePart = await getGeminiPart(imageUrl);
+        contents = [
+          {
+            role: "user",
+            parts: [
+              { text: "Here is the document image we are discussing:" },
+              imagePart
+            ]
+          },
+          ...formattedHistory
+        ];
+      }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
         method: "POST",
