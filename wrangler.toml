@@ -14,6 +14,6 @@ workers_dev = false
 
 # Route configuration — lock application strictly to the custom domain.
 [[routes]]
-pattern = "shield.primitive.org"
+pattern = "shield.primitive-os.cc"
 custom_domain = true
-zone_name = "primitive.org"  # Resolves: "Can't infer zone from route, please specify zone"
+zone_name = "primitive-os.cc"  # Correct DNS zone name
