@@ -438,7 +438,7 @@ export default function App() {
       const base64String = await fileToBase64(compressedFile);
       setScannedImageBase64(base64String);
 
-      // 2. Call our backend to trigger Groq analysis with the direct Base64 string
+      // 2. Call our secure serverless backend on Cloudflare Pages
       const langMap = { en: "English", es: "Spanish", ht: "Haitian Creole" };
       const response = await fetch("/api/analyze-notice", {
         method: "POST",
