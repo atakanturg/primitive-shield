@@ -1,10 +1,37 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Upload, AlertTriangle, ArrowRight, ArrowLeft, Shield, FileText, CheckCircle, XCircle, RefreshCw, LayoutDashboard, Loader2 } from "lucide-react";
+import { Upload, AlertTriangle, ArrowRight, ArrowLeft, FileText, CheckCircle, XCircle, RefreshCw, LayoutDashboard, Loader2 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import { jsPDF } from "jspdf";
 
 type ViewState = "home" | "upload" | "results" | "instructions" | "dashboard" | "chat";
 type Lang = "en" | "es" | "ht";
+
+const Shield305 = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <text 
+      x="12" 
+      y="14.5" 
+      fontFamily="system-ui, -apple-system, sans-serif" 
+      fontSize="6.5" 
+      fontWeight="900" 
+      textAnchor="middle" 
+      fill="currentColor" 
+      stroke="none"
+    >
+      305
+    </text>
+  </svg>
+);
 
 const t = {
   en: {
@@ -503,7 +530,7 @@ export default function App() {
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-neutral-200/60 shadow-sm relative">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-14 px-6 relative">
           <button onClick={() => navigateTo("home")} className="flex items-center space-x-2 group shrink-0">
-            <Shield className="w-5 h-5 text-neutral-900 group-hover:text-neutral-600 transition-colors" />
+            <Shield305 className="w-5 h-5 text-neutral-900 group-hover:text-neutral-600 transition-colors" />
             <span className="font-semibold text-sm tracking-tight text-neutral-900 hidden sm:block">{t[language].title}</span>
           </button>
 
@@ -1078,7 +1105,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
           {chatMessages.length === 0 && (
             <div className="m-auto text-center animate-fade-up">
               <div className="w-16 h-16 bg-white border border-neutral-950 rounded-none flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-neutral-350" />
+                <Shield305 className="w-8 h-8 text-neutral-350" />
               </div>
               <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-900 mb-2">{t[language].howCanHelp}</h3>
               <p className="text-sm text-neutral-500 max-w-sm">{t[language].chatPlaceholder}</p>
