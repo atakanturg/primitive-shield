@@ -55,21 +55,34 @@ Affordable Relocation Areas in Miami-Dade & Surrounding Counties:
 `;
 
 function parseBase64Image(imageUrl: string): { mimeType: string; base64Data: string } {
+  let mimeType = "image/jpeg";
   if (imageUrl.startsWith("data:")) {
-    const parts = imageUrl.split(",");
-    const mimeType = parts[0].split(";")[0].substring(5);
-    const base64Data = parts[1];
-    return { mimeType, base64Data };
+    try {
+      const match = imageUrl.match(/^data:([^;]+);base64,/);
+      if (match) {
+        mimeType = match[1];
+      }
+    } catch {}
   }
-  return { mimeType: "image/jpeg", base64Data: imageUrl };
+  // Bulletproof strip of any data URI prefix
+  const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
+  return { mimeType, base64Data };
 }
 
 async function getGeminiPart(imageUrl: string): Promise<any> {
+  if (!imageUrl) {
+    throw new Error("No image data provided to AI parser.");
+  }
   if (imageUrl.startsWith("http:") || imageUrl.startsWith("https:")) {
+    console.log("Fetching image from public URL:", imageUrl);
     const res = await fetch(imageUrl);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch image from URL: ${res.statusText}`);
+    }
     const buffer = await res.arrayBuffer();
     const mimeType = res.headers.get("content-type") || "image/jpeg";
     const base64Data = Buffer.from(buffer).toString("base64");
+    console.log("Fetched image successfully, length:", base64Data.length);
     return {
       inlineData: {
         mimeType,
@@ -78,6 +91,10 @@ async function getGeminiPart(imageUrl: string): Promise<any> {
     };
   } else {
     const { mimeType, base64Data } = parseBase64Image(imageUrl);
+    console.log("Parsed Base64 Image - Mime:", mimeType, "Length:", base64Data.length);
+    if (!base64Data || base64Data.length === 0) {
+      throw new Error("Base64 image data is empty or invalid.");
+    }
     return {
       inlineData: {
         mimeType,
