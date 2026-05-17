@@ -67,12 +67,9 @@ function isPDF(imageUrl: string): boolean {
   return false;
 }
 
-export async function onRequestPost(context: any) {
+async function handleAnalyzeNotice(request: Request, env: any) {
   try {
-    const { request, env } = context;
-
-    // Read headers and body
-    const reqBody = await request.json();
+    const reqBody: any = await request.json();
     const { imageUrl, language = "English" } = reqBody;
 
     if (!imageUrl) {
@@ -191,7 +188,7 @@ There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty ar
       });
     }
 
-    const geminiResult = await response.json();
+    const geminiResult: any = await response.json();
     const analysisRaw = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!analysisRaw) {
       return new Response(JSON.stringify({ error: "No response content from Gemini." }), {
@@ -211,3 +208,115 @@ There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty ar
     });
   }
 }
+
+async function handleChatNotice(request: Request, env: any) {
+  try {
+    const reqBody: any = await request.json();
+    const { imageUrl, messages, language = "English" } = reqBody;
+
+    if (!imageUrl || !messages) {
+      return new Response(JSON.stringify({ error: "Missing image URL or messages." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    const apiKey = env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Gemini API key is not configured on Cloudflare." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    const systemPrompt = `
+You are a tenant rights legal assistant for Miami-Dade County. The user has uploaded an eviction notice.
+You must answer their questions directly, specifically citing Florida Chapter 83 and Miami-Dade Municipal Code where relevant.
+Do NOT give definitive legal advice, just informational guidance.
+CRITICAL INSTRUCTION: You MUST reply in ${language}.
+
+MIAMI-DADE LAWS:
+${MIAMI_LAWS}
+
+FREE LEGAL RESOURCES:
+${FREE_LEGAL_RESOURCES}
+`;
+
+    const formattedHistory = messages.map((m: any) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
+
+    const { mimeType, base64Data } = parseBase64Image(imageUrl);
+
+    const contents = [
+      {
+        role: "user",
+        parts: [
+          { text: "Here is the document notice we are discussing:" },
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data
+            }
+          }
+        ]
+      },
+      ...formattedHistory
+    ];
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return new Response(JSON.stringify({ error: `Gemini API error: ${errorText}` }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    const geminiResult: any = await response.json();
+    const answer = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!answer) {
+      return new Response(JSON.stringify({ error: "No response content from Gemini." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    return new Response(JSON.stringify({ answer }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error.message || "An error occurred during chat." }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+}
+
+export default {
+  async fetch(request: Request, env: any, ctx: any): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/analyze-notice" && request.method === "POST") {
+      return handleAnalyzeNotice(request, env);
+    }
+    if (url.pathname === "/api/chat-notice" && request.method === "POST") {
+      return handleChatNotice(request, env);
+    }
+
+    // Fallback: serve static assets from the assets directory bound by wrangler
+    return env.ASSETS.fetch(request);
+  }
+};
