@@ -66,6 +66,7 @@ export default function App() {
   });
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     localStorage.setItem("shield_view", view);
@@ -106,12 +107,14 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setAuthLoading(false);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -770,7 +773,7 @@ export default function App() {
         <div className="max-w-2xl mx-auto px-6 py-24 text-center">
           <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">Sign in required</h2>
           <p className="text-neutral-500 mb-8 leading-relaxed">You must be signed in to view your scan history.</p>
-          <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">Sign In with Google</button>
+          <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">Sign In with Google</button>
         </div>
       );
     }
@@ -913,6 +916,21 @@ export default function App() {
     );
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center font-sans">
+        <div className="flex flex-col items-center justify-center animate-fade-up">
+          <div className="relative mb-6">
+            <div className="w-12 h-12 border-2 border-neutral-200 rounded-none" />
+            <div className="absolute inset-0 w-12 h-12 border-2 border-neutral-950 rounded-none border-t-transparent animate-spin" />
+          </div>
+          <span className="font-mono text-xs uppercase tracking-widest text-neutral-400">Primitive Shield</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-neutral-900 mt-1">Hydrating Session...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white bg-grid-pattern text-neutral-900 font-sans relative">
       <NavBar />
@@ -939,7 +957,7 @@ export default function App() {
           </div>
           <button 
             className="bg-white text-neutral-900 font-mono text-xs uppercase tracking-widest px-6 py-3 hover:bg-neutral-100 transition-colors flex items-center space-x-2 border border-neutral-950 rounded-none"
-            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
+            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
