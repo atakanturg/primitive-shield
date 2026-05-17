@@ -1,4 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-  <text x="12" y="14.5" font-family="system-ui, -apple-system, sans-serif" font-size="6.5" font-weight="900" text-anchor="middle" fill="currentColor" stroke="none">305</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="500" height="500">
+  <path d="M 50 10 
+           L 90 20 
+           L 90 55 
+           C 90 75 60 90 50 95 
+           C 40 90 10 75 10 55 
+           L 10 20 
+           Z" 
+        fill="none" 
+        stroke="#000000" 
+        stroke-width="6" 
+        stroke-linejoin="round"/>
+  
+  <text x="50" y="62" 
+        text-anchor="middle" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="28" 
+        font-weight="900" 
+        font-style="italic" 
+        fill="#000000">305</text>
 </svg>
