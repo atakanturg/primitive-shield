@@ -1,0 +1,19 @@
+# wrangler.toml — Cloudflare Deployment Configuration
+
+name = "primitive-shield"
+main = "server.ts"
+compatibility_date = "2026-05-17"
+
+# CRITICAL SECURITY: Explicitly disable the default *.workers.dev preview subdomain.
+# This prevents the app from being accessed on public Cloudflare preview URLs.
+workers_dev = false
+
+# Route configuration — lock application strictly to the custom domain.
+[[routes]]
+pattern = "shield.primitive.org"
+custom_domain = true
+
+[vars]
+# Add any non-sensitive variables here. Secrets (like GEMINI_API_KEY) must be added
+# directly in the Cloudflare Dashboard under Settings -> Variables -> Secrets.
+NODE_ENV = "production"
