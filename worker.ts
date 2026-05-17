@@ -159,25 +159,29 @@ Action plan for predatory: Provide 8 concrete actionable steps. MUST include:
 OUTPUT FORMAT — Return ONLY a valid JSON object, no markdown formatting, no code blocks:
 {
   "status": "illegible" | "legal" | "predatory",
-  "summary_of_violations": "2-3 sentence plain-english summary of the situation and what was found. If illegible, say re-upload.",
+  "summary_of_violations": "2-3 sentence plain-language summary of the situation and what was found. Written entirely in ${language}. If illegible, say re-upload.",
   "flagged_clauses": [
     {
-      "excerpt": "Exact quote from the document",
-      "law_violated": "Specific law or statute it violates",
-      "explanation": "Brief explanation of why this is a violation"
+      "excerpt": "Exact quote from the document (keep original text)",
+      "law_violated": "Specific law or statute it violates (written in ${language})",
+      "explanation": "Brief explanation of why this is a violation (written in ${language})"
     }
   ],
   "action_plan": [
-    "Step 1 — detailed actionable instruction",
-    "Step 2 — detailed actionable instruction",
-    "Step 3 — detailed actionable instruction",
-    "Step 4 — detailed actionable instruction",
-    "Step 5 — detailed actionable instruction",
-    "Step 6 — detailed actionable instruction",
-    "Step 7 — detailed actionable instruction",
-    "Step 8 — detailed actionable instruction"
+    "Step 1 — detailed actionable instruction (written in ${language})",
+    "Step 2 — detailed actionable instruction (written in ${language})",
+    "Step 3 — detailed actionable instruction (written in ${language})",
+    "Step 4 — detailed actionable instruction (written in ${language})",
+    "Step 5 — detailed actionable instruction (written in ${language})",
+    "Step 6 — detailed actionable instruction (written in ${language})",
+    "Step 7 — detailed actionable instruction (written in ${language})",
+    "Step 8 — detailed actionable instruction (written in ${language})"
   ]
 }
+
+LANGUAGE RULE:
+- The entire JSON payload (excluding exact excerpts and status) MUST be in the requested language: ${language}.
+- Translate "summary_of_violations", the "explanation" for each flagged clause, the "law_violated" descriptions, and all "action_plan" steps completely into ${language}. Do not leave any of these in English if the requested language is Spanish or Haitian Creole.
 
 There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty array [] if status is "illegible" or "legal".
 `;
