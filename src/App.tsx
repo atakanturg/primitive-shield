@@ -943,70 +943,7 @@ export default function App() {
     );
   };
 
-  // ─── DASHBOARD ───
-  const DashboardPage = () => {
-    const [scans, setScans] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      if (session) {
-        supabase
-          .from('scans')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .then(({ data, error }) => {
-            if (data) setScans(data);
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
-      }
-    }, [session]);
-
-    if (!session) {
-      return (
-        <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-          <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t[language].signInRequired}</h2>
-          <p className="text-neutral-500 mb-8 leading-relaxed">{t[language].historySub}</p>
-          <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].signInBtn}</button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="animate-fade-up max-w-5xl mx-auto px-6 py-24">
-        <div className="flex items-center justify-between mb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-neutral-900 flex items-center">
-            <LayoutDashboard className="w-8 h-8 mr-4" />
-            {t[language].yourScans}
-          </h1>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-neutral-300" /></div>
-        ) : scans.length === 0 ? (
-          <div className="text-center py-20 bg-neutral-50/20 border border-neutral-300 rounded-none">
-            <p className="text-neutral-500 mb-4">{t[language].noScansYet}</p>
-            <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].scanDoc}</button>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
-            {scans.map((scan) => (
-              <div key={scan.id} className="bg-white border border-neutral-300 rounded-none p-6 hover:border-neutral-900 transition-colors">
-                <div className="flex justify-between items-start mb-4">
-                  <span className={`px-2.5 py-0.5 text-[9px] font-mono border uppercase tracking-widest rounded-none ${scan.status === "predatory" ? "bg-red-50 border-red-500 text-red-700" : scan.status === "legal" ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-neutral-50 border-neutral-500 text-neutral-700"}`}>
-                    {scan.status}
-                  </span>
-                  <span className="text-xs text-neutral-400 font-mono">{new Date(scan.created_at).toLocaleDateString()}</span>
-                </div>
-                <p className="text-sm text-neutral-600 line-clamp-3">{scan.summary}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
 
 
@@ -1032,7 +969,13 @@ export default function App() {
         {view === "home" && HomePage()}
         {view === "upload" && UploadPage()}
         {view === "results" && ResultsPage()}
-        {view === "dashboard" && DashboardPage()}
+        {view === "dashboard" && (
+          <DashboardPage
+            session={session}
+            language={language}
+            navigateTo={navigateTo}
+          />
+        )}
         {view === "chat" && (
           <ChatPage
             scannedImageUrl={scannedImageUrl}
@@ -1202,6 +1145,76 @@ const ChatPage: React.FC<ChatPageProps> = ({
           </form>
         </div>
       </div>
+    </div>
+  );
+};
+
+interface DashboardPageProps {
+  session: any;
+  language: Lang;
+  navigateTo: (view: ViewState) => void;
+}
+
+const DashboardPage: React.FC<DashboardPageProps> = ({ session, language, navigateTo }) => {
+  const [scans, setScans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (session) {
+      supabase
+        .from('scans')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (data) setScans(data);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [session]);
+
+  if (!session) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t[language].signInRequired}</h2>
+        <p className="text-neutral-500 mb-8 leading-relaxed">{t[language].historySub}</p>
+        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].signInBtn}</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fade-up max-w-5xl mx-auto px-6 py-24">
+      <div className="flex items-center justify-between mb-12">
+        <h1 className="text-4xl font-bold tracking-tight text-neutral-900 flex items-center">
+          <LayoutDashboard className="w-8 h-8 mr-4" />
+          {t[language].yourScans}
+        </h1>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-neutral-300" /></div>
+      ) : scans.length === 0 ? (
+        <div className="text-center py-20 bg-neutral-50/20 border border-neutral-300 rounded-none animate-fade-up">
+          <p className="text-neutral-500 mb-4">{t[language].noScansYet}</p>
+          <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].scanDoc}</button>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 animate-fade-up">
+          {scans.map((scan) => (
+            <div key={scan.id} className="bg-white border border-neutral-300 rounded-none p-6 hover:border-neutral-900 transition-colors">
+              <div className="flex justify-between items-start mb-4">
+                <span className={`px-2.5 py-0.5 text-[9px] font-mono border uppercase tracking-widest rounded-none ${scan.status === "predatory" ? "bg-red-50 border-red-500 text-red-700" : scan.status === "legal" ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-neutral-50 border-neutral-500 text-neutral-700"}`}>
+                  {scan.status}
+                </span>
+                <span className="text-xs text-neutral-400 font-mono">{new Date(scan.created_at).toLocaleDateString()}</span>
+              </div>
+              <p className="text-sm text-neutral-600 line-clamp-3">{scan.summary}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
