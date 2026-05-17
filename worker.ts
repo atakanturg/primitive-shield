@@ -92,8 +92,11 @@ async function getDocumentData(imageUrl: string): Promise<{ mimeType: string; ba
     const base64Data = btoa(binary);
     
     return { mimeType, base64Data };
+  } else {
+    // It's a raw naked base64 string from the frontend file-to-base64 converter
+    const mimeType = imageUrl.startsWith("JVBERi") ? "application/pdf" : "image/jpeg";
+    return { mimeType, base64Data: imageUrl };
   }
-  throw new Error("Invalid image/document URL scheme.");
 }
 
 async function handleAnalyzeNotice(request: Request, env: any) {
