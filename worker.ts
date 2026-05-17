@@ -57,6 +57,9 @@ function parseBase64Image(imageUrl: string): { mimeType: string; base64Data: str
 
 function isPDF(imageUrl: string): boolean {
   if (!imageUrl) return false;
+  if (imageUrl.toLowerCase().includes(".pdf") || imageUrl.toLowerCase().includes("/pdf")) {
+    return true;
+  }
   if (imageUrl.startsWith("data:application/pdf;base64,")) {
     return true;
   }
@@ -65,6 +68,32 @@ function isPDF(imageUrl: string): boolean {
     return true;
   }
   return false;
+}
+
+async function getDocumentData(imageUrl: string): Promise<{ mimeType: string; base64Data: string }> {
+  if (imageUrl.startsWith("data:")) {
+    const parsed = parseBase64Image(imageUrl);
+    return { mimeType: parsed.mimeType, base64Data: parsed.base64Data };
+  } else if (imageUrl.startsWith("http")) {
+    const fetchRes = await fetch(imageUrl);
+    if (!fetchRes.ok) {
+      throw new Error(`Failed to fetch document from URL: ${fetchRes.statusText}`);
+    }
+    const arrayBuffer = await fetchRes.arrayBuffer();
+    const mimeType = fetchRes.headers.get("content-type") || "image/jpeg";
+    
+    // Convert ArrayBuffer to Base64
+    let binary = "";
+    const bytes = new Uint8Array(arrayBuffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64Data = btoa(binary);
+    
+    return { mimeType, base64Data };
+  }
+  throw new Error("Invalid image/document URL scheme.");
 }
 
 async function handleAnalyzeNotice(request: Request, env: any) {
@@ -150,7 +179,7 @@ OUTPUT FORMAT — Return ONLY a valid JSON object, no markdown formatting, no co
 There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty array [] if status is "illegible" or "legal".
 `;
 
-    const { mimeType, base64Data } = parseBase64Image(imageUrl);
+    const { mimeType, base64Data } = await getDocumentData(imageUrl);
 
     const contents = [
       {
@@ -248,7 +277,7 @@ ${FREE_LEGAL_RESOURCES}
       parts: [{ text: m.content }]
     }));
 
-    const { mimeType, base64Data } = parseBase64Image(imageUrl);
+    const { mimeType, base64Data } = await getDocumentData(imageUrl);
 
     const contents = [
       {

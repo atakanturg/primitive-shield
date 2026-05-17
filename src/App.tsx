@@ -1102,12 +1102,12 @@ export default function App() {
     <div className="min-h-screen bg-white bg-grid-pattern text-neutral-900 font-sans relative">
       <NavBar />
       <main>
-        {view === "home" && <HomePage />}
-        {view === "upload" && <UploadPage />}
-        {view === "instructions" && <InstructionsPage />}
-        {view === "results" && <ResultsPage />}
-        {view === "dashboard" && <DashboardPage />}
-        {view === "chat" && <ChatPage />}
+        {view === "home" && HomePage()}
+        {view === "upload" && UploadPage()}
+        {view === "instructions" && InstructionsPage()}
+        {view === "results" && ResultsPage()}
+        {view === "dashboard" && DashboardPage()}
+        {view === "chat" && ChatPage()}
       </main>
       <footer className="border-t border-neutral-100 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 pb-16">
