@@ -37,6 +37,8 @@ const t = {
     tipsStep4: "If possible, use a scanner app or upload a direct PDF file.",
     tipsStep5: "Accepted formats: JPG, PNG or PDF up to 10 MB.",
     disclaimer: "Disclaimer: Primitive Shield is not a substitute for professional legal counsel.",
+    showInstructions: "Show instructions",
+    hideInstructions: "Hide instructions",
     // RESULTS PAGE
     noViolations: "No Violations Detected",
     noViolationsSub: "This notice does not display overt predatory markers against the evaluated statutes. However, legal terms can be complex. If you feel uncertain, consult one of the free legal resources listed in your action plan.",
@@ -103,6 +105,8 @@ const t = {
     tipsStep4: "Si es posible, use una aplicación de escaneo o suba un archivo PDF directo.",
     tipsStep5: "Formatos aceptados: JPG, PNG o PDF hasta 10 MB.",
     disclaimer: "Descargo de responsabilidad: Primitive Shield no es un sustituto de asesoramiento legal profesional.",
+    showInstructions: "Mostrar instrucciones",
+    hideInstructions: "Ocultar instrucciones",
     // RESULTS PAGE
     noViolations: "No se detectaron violaciones",
     noViolationsSub: "Este aviso no muestra marcadores abusivos evidentes contra los estatutos evaluados. Sin embargo, los términos legales pueden ser complejos. Si no se siente seguro, consulte uno de los recursos legales gratuitos enumerados en su plan de acción.",
@@ -169,6 +173,8 @@ const t = {
     tipsStep4: "Si sa posib, sèvi ak yon aplikasyon eskanè oswa telechaje yon dosye PDF dirèk.",
     tipsStep5: "Fòma yo aksepte: JPG, PNG oswa PDF jiska 10 MB.",
     disclaimer: "Limitasyon Responsablite: Primitive Shield pa ranplase konsèy legal pwofesyonèl.",
+    showInstructions: "Montre enstriksyon yo",
+    hideInstructions: "Kache enstriksyon yo",
     // RESULTS PAGE
     noViolations: "Pa gen okenn vyolasyon detekte",
     noViolationsSub: "Avi sa a pa montre mak predatè evidan kont lwa yo evalye yo. Sepandan, tèm legal yo ka konplèks. Si ou pa sèten, konsilte youn nan resous legal gratis ki nan lis plan aksyon ou a.",
@@ -229,6 +235,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("shield_view", view);
@@ -656,12 +663,33 @@ export default function App() {
             {t[language].scanSub}
           </p>
           <button 
-            onClick={() => navigateTo("instructions")} 
-            className="mb-8 inline-flex items-center space-x-2 px-6 py-3 border border-neutral-950 bg-neutral-950 text-white text-xs font-mono uppercase tracking-widest rounded-none hover:bg-neutral-800 transition-colors shadow-sm"
+            type="button"
+            onClick={() => setShowInstructions(!showInstructions)} 
+            className="mb-6 inline-flex items-center space-x-3 px-6 py-3 border border-neutral-950 bg-neutral-950 text-white text-xs font-mono uppercase tracking-widest rounded-none hover:bg-neutral-800 transition-colors shadow-sm"
           >
-            <span>{t[language].tipsBtn}</span>
-            <ArrowRight className="w-4 h-4" />
+            <span>{showInstructions ? t[language].hideInstructions : t[language].showInstructions}</span>
+            <span className="font-mono text-sm leading-none font-bold">{showInstructions ? "−" : "+"}</span>
           </button>
+
+          {showInstructions && (
+            <div className="mb-6 space-y-4 p-6 border border-neutral-950 bg-neutral-50/20 animate-fade-down rounded-none">
+              <h2 className="text-xs font-mono uppercase tracking-widest text-neutral-400 mb-3">{t[language].tipsTitle}</h2>
+              <div className="space-y-3">
+                {[
+                  t[language].tipsStep1,
+                  t[language].tipsStep2,
+                  t[language].tipsStep3,
+                  t[language].tipsStep4,
+                  t[language].tipsStep5,
+                ].map((step, i) => (
+                  <div key={i} className="flex items-start space-x-3 text-sm text-neutral-700 leading-relaxed border-b border-neutral-100 last:border-0 pb-2 last:pb-0">
+                    <span className="font-mono text-xs font-bold text-neutral-950 mt-0.5">0{i + 1}.</span>
+                    <p>{step}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
@@ -980,108 +1008,7 @@ export default function App() {
     );
   };
 
-  // ─── CHAT PAGE ───
-  const ChatPage = () => {
-    if (!scannedImageUrl) {
-      return (
-        <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
-          <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t[language].noDocFound}</h2>
-          <p className="text-neutral-500 mb-8 leading-relaxed">{t[language].chatInitSub}</p>
-          <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].scanDoc}</button>
-        </div>
-      );
-    }
 
-    return (
-      <div className="animate-fade-up max-w-4xl mx-auto px-6 py-12 flex flex-col h-[85vh]">
-        <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-neutral-400 hover:text-neutral-900 transition-colors mb-6 group w-fit">
-          <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t[language].backResults}
-        </button>
-
-        <div className="bg-white border border-neutral-950 rounded-none flex flex-col flex-1">
-          <div className="bg-neutral-950 text-white p-6 flex justify-between items-center shrink-0">
-            <div>
-              <h1 className="text-xs font-mono uppercase tracking-widest text-neutral-400">{t[language].noticeAssistant}</h1>
-              <h2 className="text-xl font-bold mt-1">{t[language].chatAssistant}</h2>
-            </div>
-            <div className="w-16 h-16 rounded-none overflow-hidden border border-white/20 shrink-0">
-              <img src={scannedImageUrl} alt="Scanned Document" className="w-full h-full object-cover" />
-            </div>
-          </div>
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-neutral-50 flex flex-col">
-            {chatMessages.length === 0 && (
-              <div className="m-auto text-center animate-fade-up">
-                <div className="w-16 h-16 bg-white border border-neutral-950 rounded-none flex items-center justify-center mx-auto mb-4">
-                  <Shield className="w-8 h-8 text-neutral-350" />
-                </div>
-                <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-900 mb-2">{t[language].howCanHelp}</h3>
-                <p className="text-sm text-neutral-500 max-w-sm">{t[language].chatPlaceholder}</p>
-              </div>
-            )}
-            {chatMessages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-none px-5 py-4 border text-[14px] leading-relaxed ${msg.role === 'user' ? 'bg-neutral-950 border-neutral-950 text-white' : 'bg-white border-neutral-300 text-neutral-800'}`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-neutral-350 text-neutral-800 flex items-center space-x-3 shadow-none">
-                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
-                  <span className="text-neutral-500 font-mono text-xs uppercase tracking-widest">{t[language].reviewingLaw}</span>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="p-4 bg-white border-t border-neutral-200 shrink-0">
-            <form 
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!chatInput.trim() || chatLoading) return;
-                const userMsg = { role: "user", content: chatInput };
-                setChatMessages(prev => [...prev, userMsg]);
-                setChatInput("");
-                setChatLoading(true);
-
-                try {
-                  const langMap = { en: "English", es: "Spanish", ht: "Haitian Creole" };
-                  const res = await fetch("/api/chat-notice", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      imageUrl: scannedImageBase64 || scannedImageUrl,
-                      messages: [...chatMessages, userMsg],
-                      language: langMap[language]
-                    })
-                  });
-                  if (!res.ok) throw new Error("Chat failed.");
-                  const data = await res.json();
-                  setChatMessages(prev => [...prev, { role: "assistant", content: data.answer }]);
-                } catch (err) {
-                  setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, an error occurred while processing your question." }]);
-                } finally {
-                  setChatLoading(false);
-                }
-              }} 
-              className="flex space-x-3"
-            >
-              <input 
-                type="text" 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={t[language].chatInputPlaceholder}
-                className="flex-1 border border-neutral-950 rounded-none px-5 py-4 text-sm focus:outline-none focus:bg-neutral-50/30 transition-all font-mono"
-              />
-              <button type="submit" disabled={chatLoading} className="border border-neutral-950 bg-neutral-950 text-white px-8 py-4 rounded-none text-xs font-mono uppercase tracking-widest hover:bg-neutral-900 disabled:opacity-50 transition-colors shrink-0">
-                {t[language].sendBtn}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (authLoading) {
     return (
@@ -1104,10 +1031,22 @@ export default function App() {
       <main>
         {view === "home" && HomePage()}
         {view === "upload" && UploadPage()}
-        {view === "instructions" && InstructionsPage()}
         {view === "results" && ResultsPage()}
         {view === "dashboard" && DashboardPage()}
-        {view === "chat" && ChatPage()}
+        {view === "chat" && (
+          <ChatPage
+            scannedImageUrl={scannedImageUrl}
+            scannedImageBase64={scannedImageBase64}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            chatLoading={chatLoading}
+            language={language}
+            setChatMessages={setChatMessages}
+            setChatInput={setChatInput}
+            setChatLoading={setChatLoading}
+            navigateTo={navigateTo}
+          />
+        )}
       </main>
       <footer className="border-t border-neutral-100 py-8 px-6">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-400 pb-16">
@@ -1140,3 +1079,129 @@ export default function App() {
     </div>
   );
 }
+
+interface ChatPageProps {
+  scannedImageUrl: string | null;
+  scannedImageBase64: string | null;
+  chatMessages: any[];
+  chatInput: string;
+  chatLoading: boolean;
+  language: Lang;
+  setChatMessages: React.Dispatch<React.SetStateAction<any[]>>;
+  setChatInput: React.Dispatch<React.SetStateAction<string>>;
+  setChatLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  navigateTo: (view: ViewState) => void;
+}
+
+const ChatPage: React.FC<ChatPageProps> = ({
+  scannedImageUrl,
+  scannedImageBase64,
+  chatMessages,
+  chatInput,
+  chatLoading,
+  language,
+  setChatMessages,
+  setChatInput,
+  setChatLoading,
+  navigateTo
+}) => {
+  if (!scannedImageUrl) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t[language].noDocFound}</h2>
+        <p className="text-neutral-500 mb-8 leading-relaxed">{t[language].chatInitSub}</p>
+        <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-neutral-950 bg-neutral-950 text-white hover:bg-neutral-900 font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t[language].scanDoc}</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="animate-fade-up max-w-4xl mx-auto px-6 py-12 flex flex-col h-[85vh]">
+      <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-neutral-400 hover:text-neutral-900 transition-colors mb-6 group w-fit">
+        <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t[language].backResults}
+      </button>
+
+      <div className="bg-white border border-neutral-950 rounded-none flex flex-col flex-1">
+        <div className="bg-neutral-950 text-white p-6 flex justify-between items-center shrink-0">
+          <div>
+            <h1 className="text-xs font-mono uppercase tracking-widest text-neutral-400">{t[language].noticeAssistant}</h1>
+            <h2 className="text-xl font-bold mt-1">{t[language].chatAssistant}</h2>
+          </div>
+          <div className="w-16 h-16 rounded-none overflow-hidden border border-white/20 shrink-0">
+            <img src={scannedImageUrl} alt="Scanned Document" className="w-full h-full object-cover" />
+          </div>
+        </div>
+        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-neutral-50 flex flex-col">
+          {chatMessages.length === 0 && (
+            <div className="m-auto text-center animate-fade-up">
+              <div className="w-16 h-16 bg-white border border-neutral-950 rounded-none flex items-center justify-center mx-auto mb-4">
+                <Shield className="w-8 h-8 text-neutral-350" />
+              </div>
+              <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-900 mb-2">{t[language].howCanHelp}</h3>
+              <p className="text-sm text-neutral-500 max-w-sm">{t[language].chatPlaceholder}</p>
+            </div>
+          )}
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-none px-5 py-4 border text-[14px] leading-relaxed ${msg.role === 'user' ? 'bg-neutral-950 border-neutral-950 text-white' : 'bg-white border-neutral-300 text-neutral-800'}`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {chatLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-neutral-350 text-neutral-800 flex items-center space-x-3 shadow-none">
+                <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                <span className="text-neutral-500 font-mono text-xs uppercase tracking-widest">{t[language].reviewingLaw}</span>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="p-4 bg-white border-t border-neutral-200 shrink-0">
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!chatInput.trim() || chatLoading) return;
+              const userMsg = { role: "user", content: chatInput };
+              setChatMessages(prev => [...prev, userMsg]);
+              setChatInput("");
+              setChatLoading(true);
+
+              try {
+                const langMap = { en: "English", es: "Spanish", ht: "Haitian Creole" };
+                const res = await fetch("/api/chat-notice", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    imageUrl: scannedImageBase64 || scannedImageUrl,
+                    messages: [...chatMessages, userMsg],
+                    language: langMap[language]
+                  })
+                });
+                if (!res.ok) throw new Error("Chat failed.");
+                const data = await res.json();
+                setChatMessages(prev => [...prev, { role: "assistant", content: data.answer }]);
+              } catch (err) {
+                setChatMessages(prev => [...prev, { role: "assistant", content: "Sorry, an error occurred while processing your question." }]);
+              } finally {
+                setChatLoading(false);
+              }
+            }} 
+            className="flex space-x-3"
+          >
+            <input 
+              type="text" 
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder={t[language].chatInputPlaceholder}
+              className="flex-1 border border-neutral-950 rounded-none px-5 py-4 text-sm focus:outline-none focus:bg-neutral-50/30 transition-all font-mono"
+            />
+            <button type="submit" disabled={chatLoading} className="border border-neutral-950 bg-neutral-950 text-white px-8 py-4 rounded-none text-xs font-mono uppercase tracking-widest hover:bg-neutral-900 disabled:opacity-50 transition-colors shrink-0">
+              {t[language].sendBtn}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
