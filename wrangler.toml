@@ -1,8 +1,12 @@
-# wrangler.toml — Cloudflare Deployment Configuration
+# wrangler.toml — Cloudflare Static Assets Deployment Configuration
 
 name = "primitive-shield"
-main = "server.ts"
 compatibility_date = "2026-05-17"
+
+# Serve the compiled React frontend statically from the ./dist directory.
+# This prevents Wrangler from trying to compile the Node/Express backend (server.ts),
+# completely resolving the 130+ Node.js V8 compatibility and compilation errors.
+assets = { directory = "./dist" }
 
 # CRITICAL SECURITY: Explicitly disable the default *.workers.dev preview subdomain.
 # This prevents the app from being accessed on public Cloudflare preview URLs.
@@ -12,8 +16,3 @@ workers_dev = false
 [[routes]]
 pattern = "shield.primitive.org"
 custom_domain = true
-
-[vars]
-# Add any non-sensitive variables here. Secrets (like GEMINI_API_KEY) must be added
-# directly in the Cloudflare Dashboard under Settings -> Variables -> Secrets.
-NODE_ENV = "production"
