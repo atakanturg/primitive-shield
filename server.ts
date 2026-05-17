@@ -2,26 +2,90 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import multer from "multer";
-import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
-// A mock "Knowledge Base" (since we don't have pgvector in this environment)
-// In a real application, this would be retrieved from Supabase pgvector
-const MOCK_MIAMI_LAWS = `
-Florida Chapter 83 & Miami-Dade Municipal Code (Excerpts):
-1. **Notice of Termination (Month-to-Month):** Miami-Dade County requires landlords to give residential tenants at least 60 days' written notice before terminating a month-to-month tenancy (Ordinance No. 21-1). 
-2. **Retaliatory Eviction:** It is unlawful for a landlord to discriminatorily increase a tenant's rent or decrease services, or to bring or threaten to bring an action for possession or other civil action, primarily because the landlord is retaliating against the tenant.
-3. **Renovations & Repairs:** A landlord may not evict a tenant under the guise of "renovations" if the renovations are cosmetic or not immediately necessary for health and safety, without respecting the lease term or providing the mandatory 60-day notice for month-to-month tenancies in Miami-Dade.
-4. **Self-Help Eviction:** Landlords cannot use "self-help" eviction methods (changing locks, shutting off utilities, removing doors) (Fla. Stat. 83.67). Eviction must go through the court process.
-5. **Notice of Rent Increase:** Miami-Dade requires landlords to provide 60 days' written notice before increasing rent by more than 5%.
+const MIAMI_LAWS = `
+FLORIDA LANDLORD-TENANT LAW (Chapter 83, Florida Statutes — https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0000-0099/0083/0083.html):
+1. Fla. Stat. 83.46 — Rent; duration of tenancies: Rent is due at the time and place agreed upon. If no agreement, it is due at the beginning of each period.
+2. Fla. Stat. 83.49 — Deposit money or advance rent; duty of landlord and tenant: Landlords must return security deposits within 15 days of termination of the tenancy, or provide written notice of claim within 30 days.
+3. Fla. Stat. 83.51 — Landlord's obligation to maintain premises: Landlords must maintain premises in a structurally sound condition, comply with housing codes affecting health and safety, and ensure all plumbing, electrical, and HVAC systems are in working order.
+4. Fla. Stat. 83.56 — Termination of rental agreement: Before eviction, a landlord must serve a proper written notice (3 days for non-payment of rent; 7 days for lease violations). Failure to follow exact legal procedure voids the eviction claim.
+5. Fla. Stat. 83.60 — Defenses to action for rent or possession: Tenants may withhold rent or defend against eviction if the landlord fails to maintain the premises or violates tenant rights.
+6. Fla. Stat. 83.64 — Retaliatory conduct: It is UNLAWFUL for a landlord to increase rent, decrease services, or threaten eviction in retaliation for a tenant reporting code violations or exercising legal rights.
+7. Fla. Stat. 83.67 — Prohibited practices: Landlords CANNOT change locks, shut off utilities, remove doors/windows, or use any self-help eviction method. Doing so entitles the tenant to sue for 3 months' rent or actual damages, whichever is greater.
+8. Miami-Dade County Ordinance No. 21-1 — Requires landlords to give tenants at least 60 days written notice before terminating a month-to-month tenancy and at least 60 days notice before raising rent by more than 5%.
+
+FAIR HOUSING ACT (https://www.justice.gov/crt/fair-housing-act-1):
+- It is illegal to evict or discriminate based on race, color, national origin, religion, sex, familial status, or disability.
+- Predatory eviction patterns targeting protected classes constitute federal civil rights violations.
+
+FLORIDA COURTS EVICTION FORMS (official resources):
+- Landlord/Tenant Forms: https://flcourts-media.flcourts.gov/content/download/241621/file/92023a3.pdf
+- Answer to Eviction Complaint Form (tenant defense filing): https://www-media.floridabar.org/uploads/2024/08/Form-1.947b-Answer-Residential-Eviction.pdf
 `;
+
+const FREE_LEGAL_RESOURCES = `
+Miami-Dade Free Legal Resources:
+- Legal Services of Greater Miami: (305) 579-5733 | lsgmi.org — Free civil legal aid for low-income residents.
+- Community Legal Services: (305) 751-0232 — Housing and eviction defense.
+- Florida Rural Legal Services: (800) 277-7680 — Free housing legal help.
+- Dade County Bar Association Lawyer Referral: (305) 371-2202
+- Miami-Dade Tenant Hotline: 311
+- Florida Bar Find a Lawyer: floridabar.org/public/directory
+- File your Answer to Eviction here: https://www-media.floridabar.org/uploads/2024/08/Form-1.947b-Answer-Residential-Eviction.pdf
+`;
+
+const RELOCATION_AREAS = `
+Affordable Relocation Areas in Miami-Dade & Surrounding Counties:
+- Hialeah: Historically one of Miami-Dade's most affordable neighborhoods, strong Cuban-American community.
+- Homestead / Florida City: Southern Miami-Dade, significantly lower rents, suburban feel.
+- North Miami / North Miami Beach: Mid-range pricing, closer to the city.
+- Miami Gardens: Predominantly residential, lower cost of living than Miami proper.
+- Broward County (Lauderhill, Lauderdale Lakes, Miramar): 20-40 min north, substantially lower rents.
+- Palm Beach County (Lake Worth, Boynton Beach): Further north, excellent affordability.
+- Section 8 / HUD Housing: Miami-Dade Public Housing Agency (786) 654-7100 | miamidade.gov/housing
+- Emergency Rental Assistance: Camillus House (305) 374-1065 | Salvation Army Miami (305) 325-8370
+`;
+
+function parseBase64Image(imageUrl: string): { mimeType: string; base64Data: string } {
+  if (imageUrl.startsWith("data:")) {
+    const parts = imageUrl.split(",");
+    const mimeType = parts[0].split(";")[0].substring(5);
+    const base64Data = parts[1];
+    return { mimeType, base64Data };
+  }
+  return { mimeType: "image/jpeg", base64Data: imageUrl };
+}
+
+async function getGeminiPart(imageUrl: string): Promise<any> {
+  if (imageUrl.startsWith("http:") || imageUrl.startsWith("https:")) {
+    const res = await fetch(imageUrl);
+    const buffer = await res.arrayBuffer();
+    const mimeType = res.headers.get("content-type") || "image/jpeg";
+    const base64Data = Buffer.from(buffer).toString("base64");
+    return {
+      inlineData: {
+        mimeType,
+        data: base64Data
+      }
+    };
+  } else {
+    const { mimeType, base64Data } = parseBase64Image(imageUrl);
+    return {
+      inlineData: {
+        mimeType,
+        data: base64Data
+      }
+    };
+  }
+}
 
 async function startServer() {
   const app = express();
@@ -29,128 +93,205 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
 
-  app.post("/api/analyze-notice", upload.single("document"), async (req, res) => {
+  app.post("/api/analyze-notice", async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No document uploaded." });
+      const { imageUrl, language = 'English' } = req.body;
+      
+      if (!imageUrl) {
+        return res.status(400).json({ error: "No image URL provided." });
       }
-
       if (!process.env.GEMINI_API_KEY) {
         return res.status(500).json({ error: "Gemini API key is not configured." });
       }
 
-      const ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
-      });
+      console.log(`Starting Gemini Vision Analysis (${language})...`);
 
-      // 1. Convert image to base64
-      const base64Data = req.file.buffer.toString("base64");
-      const mimeType = req.file.mimetype;
-
-      // 2. OCR and Demands Extraction
-      console.log("Starting Phase 1: OCR & Demands Extraction");
-      const extractResponse = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: {
-          parts: [
-            { text: "Accurately transcribe the text of this document. Then, provide a concise summary of the landlord's core demands (e.g., 'give vacating date', 'pay extra fee', '7-day termination'). Output format: First the transcription, then 'DEMANDS SUMMARY:' followed by the summary." },
-            { inlineData: { data: base64Data, mimeType: mimeType } }
-          ]
-        }
-      });
-      
-      const ocrAndDemands = extractResponse.text;
-      
-      if (!ocrAndDemands) {
-         throw new Error("Failed to extract text from document.");
-      }
-
-      // Memory Cleanup Phase: Drop base64 data to ensure no PII lingering
-      req.file.buffer = Buffer.alloc(0);
-
-      // 3. Triage & Analysis (RAG phase, using mock retrieved laws)
-      console.log("Starting Phase 2: Legal Triage");
-      
       const triagePrompt = `
-You are a housing law evaluator assisting Miami-Dade tenants. 
+You are a housing law evaluator assisting Miami-Dade tenants protect their rights.
+CRITICAL INSTRUCTION: You MUST translate ALL output into ${language}. The entire JSON response (summary, clauses, action plan) must be in ${language}.
 
-DOCUMENT TEXT (OCR):
-${ocrAndDemands}
+Analyze the uploaded document image and evaluate it against the following local laws and resources:
 
-RETRIEVED LOCAL LAWS (Miami-Dade / Florida):
-${MOCK_MIAMI_LAWS}
+MIAMI-DADE LAWS:
+${MIAMI_LAWS}
 
-EVALUATION CONSTRAINTS:
-1. Determine the status of the document: 
-   - 'illegible' if the text cannot be read or is completely unrelated to housing.
-   - 'legal' if the notice appears to be a lawful demand (with proper notice periods respected).
-   - 'predatory' if it contains illegal demands, violates notice periods, threatens illegal self-help, or implies an illegal rent increase based on provided retrieved laws.
-2. If predatory, list specific flagged clauses from the text and cite which retrieved law it violates.
-3. Output EXACTLY 8 actionable steps in 'action_plan'. 
-   - If 'illegible', the steps should focus on how to take a better photo and why it's important to understand the document.
-   - If 'legal', include actionable steps like preparing for relocation, contacting public free legal council, and understanding the moving timeline. 
-   - If 'predatory', include steps for legal pushback, contacting legal aid, and documenting interactions.
-4. Output a strictly formatted JSON response.
+FREE LEGAL RESOURCES:
+${FREE_LEGAL_RESOURCES}
+
+RELOCATION RESOURCES:
+${RELOCATION_AREAS}
+
+INSTRUCTIONS:
+Determine the document status — it must be exactly one of three values:
+
+PATH 1 — "illegible":
+Use this if the document text cannot be read clearly, the image is too blurry/dark, or the content is completely unrelated to housing or tenancy.
+Action plan for illegible: The model should say re-upload. Provide 8 steps focusing on how to re-upload a clearer image. Steps should include: ensuring good lighting, flattening the document, using a scanner app, checking focus, capturing the entire page, why clarity is needed for legal review, trying a different file format (PDF), and attempting to re-upload.
+
+PATH 2 — "legal":
+Use this if the notice appears to follow lawful procedures with proper notice periods respected and no illegal clauses.
+Action plan for legal: Provide 8 concrete actionable steps. MUST include:
+- Actionable steps for next moves.
+- Specific potential areas for relocation from the RELOCATION RESOURCES list.
+- Contact information for public free legal council from the FREE LEGAL RESOURCES list.
+
+PATH 3 — "predatory":
+Use this if the notice contains illegal demands, insufficient notice periods, threatens self-help eviction, implies illegal rent increases, or is retaliatory.
+Action plan for predatory: Provide 8 concrete actionable steps. MUST include:
+- Actionable steps for defending against the predatory notice.
+- Specific potential areas for relocation from the RELOCATION RESOURCES list (in case they need to move safely).
+- Contact information for public free legal council from the FREE LEGAL RESOURCES list.
+
+OUTPUT FORMAT — Return ONLY a valid JSON object, no markdown formatting, no code blocks:
+{
+  "status": "illegible" | "legal" | "predatory",
+  "summary_of_violations": "2-3 sentence plain-english summary of the situation and what was found. If illegible, say re-upload.",
+  "flagged_clauses": [
+    {
+      "excerpt": "Exact quote from the document",
+      "law_violated": "Specific law or statute it violates",
+      "explanation": "Brief explanation of why this is a violation"
+    }
+  ],
+  "action_plan": [
+    "Step 1 — detailed actionable instruction",
+    "Step 2 — detailed actionable instruction",
+    "Step 3 — detailed actionable instruction",
+    "Step 4 — detailed actionable instruction",
+    "Step 5 — detailed actionable instruction",
+    "Step 6 — detailed actionable instruction",
+    "Step 7 — detailed actionable instruction",
+    "Step 8 — detailed actionable instruction"
+  ]
+}
+
+There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty array [] if status is "illegible" or "legal".
 `;
 
-      const triageResponse = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: triagePrompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              status: {
-                type: Type.STRING,
-                description: "Must be exactly one of: 'illegible', 'legal', or 'predatory'."
-              },
-              summary_of_violations: {
-                 type: Type.STRING,
-                 description: "A short, plain-english summary of the situation."
-              },
-              flagged_clauses: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    excerpt: { type: Type.STRING, description: "The exact quote from the document." },
-                    law_violated: { type: Type.STRING, description: "The specific law from the context that it violates." },
-                    explanation: { type: Type.STRING, description: "Brief explanation." }
-                  },
-                  required: ["excerpt", "law_violated", "explanation"]
-                }
-              },
-              action_plan: {
-                 type: Type.ARRAY,
-                 items: { type: Type.STRING },
-                 description: "Exactly 8 actionable steps explaining what the tenant should do next."
-              }
-            },
-            required: ["status", "flagged_clauses", "action_plan", "summary_of_violations"]
+      const imagePart = await getGeminiPart(imageUrl);
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: triagePrompt },
+                imagePart
+              ]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json",
           }
-        }
+        })
       });
 
-      const analysisRaw = triageResponse.text;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API error:", errorText);
+        throw new Error(`Gemini API error ${response.status}: ${errorText}`);
+      }
+
+      const geminiResult = await response.json();
+      const analysisRaw = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!analysisRaw) throw new Error("No response content from Gemini.");
+
       let analysisJson;
       try {
-        analysisJson = JSON.parse(analysisRaw!);
+        analysisJson = JSON.parse(analysisRaw);
       } catch (e) {
-         console.error("Failed to parse JSON response: ", analysisRaw);
-         return res.status(500).json({ error: "Failed to generate legal analysis." });
+        console.error("Failed to parse Gemini JSON:", analysisRaw);
+        return res.status(500).json({ error: "Failed to parse analysis response." });
       }
 
       res.json(analysisJson);
-
     } catch (error: any) {
-      console.error("API Error: ", error);
+      console.error("API Error:", error);
       res.status(500).json({ error: error.message || "An error occurred during analysis." });
     }
   });
 
-  // Vite middleware for development
+  app.post("/api/chat-notice", async (req, res) => {
+    try {
+      const { imageUrl, messages, language = 'English' } = req.body;
+      
+      if (!imageUrl || !messages) {
+        return res.status(400).json({ error: "Missing image URL or messages." });
+      }
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Gemini API key is not configured." });
+      }
+
+      console.log(`Starting Gemini Chat Analysis (${language})...`);
+
+      const systemPrompt = `
+You are a tenant rights legal assistant for Miami-Dade County. The user has uploaded an eviction notice.
+You must answer their questions directly, specifically citing Florida Chapter 83 and Miami-Dade Municipal Code where relevant.
+Do NOT give definitive legal advice, just informational guidance.
+CRITICAL INSTRUCTION: You MUST reply in ${language}.
+
+MIAMI-DADE LAWS:
+${MIAMI_LAWS}
+
+FREE LEGAL RESOURCES:
+${FREE_LEGAL_RESOURCES}
+`;
+
+      const imagePart = await getGeminiPart(imageUrl);
+
+      const formattedHistory = messages.map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
+      }));
+
+      const contents = [
+        {
+          role: "user",
+          parts: [
+            { text: "Here is the document we are discussing:" },
+            imagePart
+          ]
+        },
+        ...formattedHistory
+      ];
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini Chat API error:", errorText);
+        throw new Error(`Gemini Chat API error ${response.status}: ${errorText}`);
+      }
+
+      const geminiResult = await response.json();
+      const answer = geminiResult.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!answer) throw new Error("No response content from Gemini.");
+
+      res.json({ answer });
+    } catch (error: any) {
+      console.error("Chat API Error:", error);
+      res.status(500).json({ error: error.message || "An error occurred during chat." });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -160,13 +301,13 @@ EVALUATION CONSTRAINTS:
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Primitive Shield running on http://localhost:${PORT}`);
   });
 }
 
