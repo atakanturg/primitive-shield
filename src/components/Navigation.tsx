@@ -1,11 +1,30 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { Menu, X, LogOut } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(true);
+  const [session, setSession] = useState<any>(null);
   const location = useLocation();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/';
+  };
 
   const routes = [
     { path: '/', label: 'Home' },
@@ -53,6 +72,15 @@ export function Navigation() {
                     </Link>
                   );
                 })}
+                {session && (
+                  <button
+                    onClick={handleLogout}
+                    className="px-5 md:px-6 py-3 rounded-[2.5rem] transition-all duration-500 text-[9px] md:text-[10px] font-medium uppercase tracking-[0.2em] text-red-400 hover:text-red-300 hover:bg-white/10 flex items-center gap-2"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Logout
+                  </button>
+                )}
               </div>
             </motion.div>
           )}

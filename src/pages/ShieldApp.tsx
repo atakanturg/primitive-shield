@@ -308,6 +308,24 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   }, [chatMessages]);
 
   useEffect(() => {
+    const handleSelectScan = (e: any) => {
+      const scan = e.detail;
+      setResult({
+        status: scan.status,
+        summary_of_violations: scan.summary,
+        // We'd ideally need to store flagged_clauses and action_plan in the DB too
+        // for full reconstruction. For now, we'll show what we have.
+        flagged_clauses: [], 
+        action_plan: []
+      });
+      setScannedImageUrl(scan.image_url);
+      navigateTo("results");
+    };
+    window.addEventListener('select-scan', handleSelectScan);
+    return () => window.removeEventListener('select-scan', handleSelectScan);
+  }, []);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -805,7 +823,7 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
       doc.text(intro, margin, y);
       y += intro.length * 7 + 5;
 
-      if (result.flagged_clauses) {
+      if (result.flagged_clauses && result.flagged_clauses.length > 0) {
         result.flagged_clauses.forEach((clause: any) => {
           if (y > 270) { doc.addPage(); y = margin; }
           doc.setFont("helvetica", "bold");
@@ -816,6 +834,10 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
           doc.text(exp, margin, y);
           y += exp.length * 7 + 5;
         });
+      } else {
+        const summaryText = doc.splitTextToSize(result.summary_of_violations, 170);
+        doc.text(summaryText, margin, y);
+        y += summaryText.length * 7 + 5;
       }
 
       if (y > 250) { doc.addPage(); y = margin; }
@@ -832,14 +854,24 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
       doc.save("tenant-defense-letter.pdf");
     };
 
+    const hasDetailedData = result.flagged_clauses && result.flagged_clauses.length > 0;
+
     return (
       <div className="animate-fade-up">
         {/* Status Banner */}
         <div className={`border-b-4 ${cfg.accent}`}>
           <div className="max-w-5xl mx-auto px-6 py-12">
-            <div className="flex items-center space-x-3 mb-4">
-              <span className="text-terra-ink">{cfg.icon}</span>
-              <span className="font-mono text-xs uppercase tracking-widest text-terra-muted">{result.status}</span>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <span className="text-terra-ink">{cfg.icon}</span>
+                <span className="font-mono text-xs uppercase tracking-widest text-terra-muted">{result.status}</span>
+              </div>
+              <button 
+                onClick={() => navigateTo("dashboard")}
+                className="text-[10px] font-mono uppercase tracking-widest text-terra-muted hover:text-terra-ink flex items-center gap-2"
+              >
+                <ArrowLeft className="w-3 h-3" /> Back to History
+              </button>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-terra-ink mb-4">{cfg.label}</h1>
             <p className="text-lg text-terra-muted leading-relaxed max-w-2xl">{result.summary_of_violations}</p>
@@ -849,7 +881,7 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
         <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-5 gap-12">
           {/* Left — Flagged Clauses */}
           <div className="lg:col-span-3 space-y-8">
-            {result.flagged_clauses && result.flagged_clauses.length > 0 && (
+            {hasDetailedData ? (
               <div>
                 <h2 className="text-xs font-mono uppercase tracking-widest text-terra-muted mb-6">{t[language].flaggedClauses}</h2>
                 <div className="space-y-6">
@@ -868,7 +900,11 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
                   ))}
                 </div>
               </div>
-            )}
+            ) : result.status !== "legal" && result.status !== "illegible" ? (
+              <div className="p-8 border border-terra-border bg-terra-surface/30">
+                <p className="text-sm text-terra-muted italic">Detailed clause analysis is only available for new scans. Please see the summary above for the legal assessment.</p>
+              </div>
+            ) : null}
 
             {result.status === "legal" && (
               <div className="border border-emerald-500 bg-emerald-50/20 p-6 rounded-none">
@@ -908,14 +944,18 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
           <div className="lg:col-span-2">
             <div className="bg-terra-ink text-white p-8 sticky top-20 border border-white/10 rounded-none shadow-sm">
               <h2 className="text-xs font-mono uppercase tracking-widest text-terra-muted mb-6 pb-4 border-b border-white/10">{t[language].actionPlan}</h2>
-              <ol className="space-y-5">
-                {(result.action_plan || []).map((step: string, i: number) => (
-                  <li key={i} className="flex items-start">
-                    <span className="font-mono text-xs font-bold text-white/55 mr-3 shrink-0 mt-0.5">0{i + 1}.</span>
-                    <span className="text-sm leading-relaxed text-white/80">{step}</span>
-                  </li>
-                ))}
-              </ol>
+              {result.action_plan && result.action_plan.length > 0 ? (
+                <ol className="space-y-5">
+                  {result.action_plan.map((step: string, i: number) => (
+                    <li key={i} className="flex items-start">
+                      <span className="font-mono text-xs font-bold text-white/55 mr-3 shrink-0 mt-0.5">0{i + 1}.</span>
+                      <span className="text-sm leading-relaxed text-white/80">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-sm text-white/50 italic mb-6">Action plan available for real-time scans.</p>
+              )}
               <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
                 {result.status === "predatory" && (
                   <button onClick={generatePDF} className="w-full border border-red-600 bg-red-600 text-white text-xs font-mono uppercase tracking-widest py-3.5 rounded-none hover:bg-red-700 transition-colors">
@@ -1062,18 +1102,20 @@ const ChatPage: React.FC<ChatPageProps> = ({
   }
 
   return (
-    <div className="animate-fade-up max-w-4xl mx-auto px-6 py-12 flex flex-col h-[85vh]">
-      <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-terra-muted hover:text-terra-ink transition-colors mb-6 group w-fit">
-        <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t[language].backResults}
-      </button>
+    <div className="animate-fade-up max-w-4xl mx-auto px-6 py-4 flex flex-col h-[calc(100vh-280px)] min-h-[450px] relative z-10">
+      <div className="flex justify-between items-center mb-4">
+        <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-terra-muted hover:text-terra-ink transition-colors group w-fit">
+          <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t[language].backResults}
+        </button>
+      </div>
 
-      <div className="bg-white border border-terra-ink rounded-none flex flex-col flex-1">
-        <div className="bg-terra-ink text-white p-6 flex justify-between items-center shrink-0">
+      <div className="bg-white border border-terra-ink rounded-none flex flex-col flex-1 overflow-hidden shadow-2xl">
+        <div className="bg-terra-ink text-white p-4 flex justify-between items-center shrink-0 border-b border-white/10">
           <div>
-            <h1 className="text-xs font-mono uppercase tracking-widest text-terra-muted">{t[language].noticeAssistant}</h1>
-            <h2 className="text-xl font-bold mt-1">{t[language].chatAssistant}</h2>
+            <h1 className="text-[10px] font-mono uppercase tracking-widest text-terra-muted">{t[language].noticeAssistant}</h1>
+            <h2 className="text-lg font-bold mt-0.5">{t[language].chatAssistant}</h2>
           </div>
-          <div className="w-16 h-16 rounded-none overflow-hidden border border-white/20 shrink-0">
+          <div className="w-12 h-12 rounded-none overflow-hidden border border-white/20 shrink-0">
             <img src={scannedImageUrl} alt="Scanned Document" className="w-full h-full object-cover" />
           </div>
         </div>
@@ -1096,7 +1138,7 @@ const ChatPage: React.FC<ChatPageProps> = ({
           ))}
           {chatLoading && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-terra-border text-terra-ink flex items-center space-x-3 shadow-none">
+              <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-terra-border text-terra-ink flex items-center space-x-3">
                 <Loader2 className="w-4 h-4 animate-spin text-terra-muted" />
                 <span className="text-terra-muted font-mono text-xs uppercase tracking-widest">{t[language].reviewingLaw}</span>
               </div>
@@ -1206,15 +1248,29 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ session, language, naviga
       ) : (
         <div className="grid gap-6 md:grid-cols-2 animate-fade-up">
           {scans.map((scan) => (
-            <div key={scan.id} className="bg-white border border-terra-border rounded-none p-6 hover:border-terra-ink transition-colors">
+            <button 
+              key={scan.id} 
+              onClick={() => {
+                // Set the result globally so ResultsPage can see it
+                // We'll need to update ShieldApp to handle this, 
+                // but for now we'll simulate the selection
+                window.dispatchEvent(new CustomEvent('select-scan', { detail: scan }));
+              }}
+              className="bg-white border border-terra-border rounded-none p-6 hover:border-terra-ink transition-colors text-left group"
+            >
               <div className="flex justify-between items-start mb-4">
                 <span className={`px-2.5 py-0.5 text-[9px] font-mono border uppercase tracking-widest rounded-none ${scan.status === "predatory" ? "bg-red-50 border-red-500 text-red-700" : scan.status === "legal" ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-terra-surface border-terra-muted text-terra-ink"}`}>
                   {scan.status}
                 </span>
                 <span className="text-xs text-terra-muted font-mono">{new Date(scan.created_at).toLocaleDateString()}</span>
               </div>
-              <p className="text-sm text-terra-muted line-clamp-3">{scan.summary}</p>
-            </div>
+              <p className="text-sm text-terra-muted line-clamp-3 mb-4 group-hover:text-terra-ink transition-colors">{scan.summary}</p>
+              <div className="flex justify-end">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-terra-muted group-hover:text-terra-ink flex items-center gap-1">
+                  View Results <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </button>
           ))}
         </div>
       )}
