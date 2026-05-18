@@ -1209,6 +1209,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ session, language, naviga
       supabase
         .from('scans')
         .select('*')
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .then(({ data, error }) => {
           if (data) setScans(data);
