@@ -8,10 +8,10 @@ export function Navigation() {
   const location = useLocation();
 
   const routes = [
-    { path: '/', label: 'Shield Home' },
-    { path: '/app', label: 'Launch Shield' },
-    { path: '/ontology', label: 'Ontology' },
-    { path: '/onboarding', label: 'Onboarding' },
+    { path: '/', label: 'Home' },
+    { path: '/scan', label: 'Scan' },
+    { path: '/chat', label: 'Chat' },
+    { path: '/dashboard', label: 'Dashboard' },
   ];
 
   return (

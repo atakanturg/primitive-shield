@@ -240,8 +240,15 @@ const t = {
   }
 };
 
-export default function ShieldApp() {
-  const [view, setView] = useState<ViewState>(() => (localStorage.getItem("shield_view") as ViewState) || "home");
+import { useNavigate } from 'react-router-dom';
+
+export default function ShieldApp({ view: propView }: { view?: ViewState }) {
+  const navigate = useNavigate();
+  const [view, setView] = useState<ViewState>(() => propView || (localStorage.getItem("shield_view") as ViewState) || "home");
+
+  useEffect(() => {
+    if (propView) setView(propView);
+  }, [propView]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -361,7 +368,15 @@ export default function ShieldApp() {
   };
 
   const navigateTo = (v: ViewState) => {
-    setView(v);
+    const routeMap: Record<ViewState, string> = {
+      home: "/",
+      upload: "/scan",
+      chat: "/chat",
+      dashboard: "/dashboard",
+      results: "/results",
+      instructions: "/scan" // handled internally by showInstructions usually
+    };
+    navigate(routeMap[v]);
     window.scrollTo(0, 0);
   };
 
@@ -940,26 +955,6 @@ export default function ShieldApp() {
   return (
     <div className="min-h-screen bg-transparent text-terra-ink font-sans relative">
       <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="flex justify-end mb-8">
-           <select
-             value={language}
-             onChange={(e) => setLanguage(e.target.value as Lang)}
-             className="bg-transparent border border-terra-border text-terra-muted font-bold text-[10px] tracking-widest uppercase focus:outline-none cursor-pointer hover:text-terra-ink p-2"
-           >
-             <option value="en">English</option>
-             <option value="es">Español</option>
-             <option value="ht">Kreyòl</option>
-           </select>
-        </div>
-
-        <div className="flex items-center space-x-6 mb-12">
-          <button onClick={() => navigateTo("home")} className={`text-[10px] uppercase tracking-[0.2em] transition-all ${view === "home" ? "font-bold text-terra-ink border-b-2 border-terra-ink" : "font-medium text-terra-muted hover:text-terra-ink"}`}>{t[language].home}</button>
-          <button onClick={() => navigateTo("upload")} className={`text-[10px] uppercase tracking-[0.2em] transition-all ${view === "upload" ? "font-bold text-terra-ink border-b-2 border-terra-ink" : "font-medium text-terra-muted hover:text-terra-ink"}`}>{t[language].scan}</button>
-          <button onClick={() => navigateTo("chat")} className={`text-[10px] uppercase tracking-[0.2em] transition-all ${view === "chat" ? "font-bold text-terra-ink border-b-2 border-terra-ink" : "font-medium text-terra-muted hover:text-terra-ink"}`}>{t[language].chat}</button>
-          {session && <button onClick={() => navigateTo("dashboard")} className={`text-[10px] uppercase tracking-[0.2em] transition-all ${view === "dashboard" ? "font-bold text-terra-ink border-b-2 border-terra-ink" : "font-medium text-terra-muted hover:text-terra-ink"}`}>{t[language].dashboard}</button>}
-          {result && <button onClick={() => navigateTo("results")} className={`text-[10px] uppercase tracking-[0.2em] transition-all ${view === "results" ? "font-bold text-terra-ink border-b-2 border-terra-ink" : "font-medium text-terra-muted hover:text-terra-ink"}`}>{t[language].results}</button>}
-        </div>
-
         <main>
           {view === "home" && HomePage()}
           {view === "upload" && UploadPage()}

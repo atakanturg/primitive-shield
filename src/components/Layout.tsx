@@ -59,9 +59,10 @@ export default function Layout() {
 
   const getPageTitle = () => {
     switch (location.pathname) {
-      case '/ontology': return 'ONTOLOGY';
-      case '/onboarding': return 'ONBOARDING';
-      default: return 'OS';
+      case '/scan': return 'SCAN';
+      case '/chat': return 'CHAT';
+      case '/dashboard': return 'DASHBOARD';
+      default: return 'SHIELD';
     }
   };
 
@@ -81,7 +82,7 @@ export default function Layout() {
               className="w-12 h-12 border border-terra-ink border-t-transparent rounded-full"
             />
             <div className="text-xs font-sans font-bold tracking-[0.3em] uppercase text-terra-ink">
-              Initializing Primitive
+              Initializing Primitive Shield
             </div>
           </motion.div>
         )}
@@ -140,7 +141,7 @@ export default function Layout() {
 
         <footer className="pt-24 pb-36 px-4 text-center relative z-10 border-t border-terra-border/50 bg-terra-bg/80 backdrop-blur-md">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-[0.3em] text-terra-muted">
-            <div>Primitive OS © 2026</div>
+            <div>Primitive Shield © 2026</div>
             <div className="flex gap-8">
               <a href="#" className="hover:text-terra-ink transition-colors">Privacy</a>
               <a href="#" className="hover:text-terra-ink transition-colors">Terms</a>
