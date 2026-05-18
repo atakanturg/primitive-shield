@@ -47,7 +47,7 @@ export function Navigation() {
     <div className="w-full bg-terra-bg border-t border-terra-border py-4 px-4 flex justify-center items-center h-[88px] relative">
       <motion.nav 
         layout
-        className="flex items-center p-2 bg-terra-ink backdrop-blur-md rounded-[3rem] shadow-2xl overflow-hidden min-h-[64px]"
+        className="flex items-center p-2 bg-terra-ink backdrop-blur-md rounded-[3rem] shadow-2xl min-h-[64px]"
       >
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -63,7 +63,7 @@ export function Navigation() {
               animate={{ width: "auto", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center whitespace-nowrap overflow-hidden"
+              className="flex items-center whitespace-nowrap"
             >
               <div className="flex pr-2 pl-2 gap-2">
                 {routes.map((route) => {
