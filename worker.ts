@@ -360,7 +360,16 @@ export default {
       return handleChatNotice(request, env);
     }
 
-    // Fallback: serve static assets from the assets directory bound by wrangler
-    return env.ASSETS.fetch(request);
+    // Try to serve static assets first
+    const response = await env.ASSETS.fetch(request);
+    
+    // If asset not found (404) and it's a navigation request (not a file like .js, .css, .png)
+    // then serve index.html to allow client-side routing.
+    if (response.status === 404 && !url.pathname.includes('.')) {
+      const indexRequest = new Request(new URL("/index.html", request.url), request);
+      return env.ASSETS.fetch(indexRequest);
+    }
+
+    return response;
   }
 };

@@ -23,6 +23,7 @@ export function Navigation() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    localStorage.clear();
     window.location.href = '/';
   };
 

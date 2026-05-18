@@ -249,63 +249,94 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   useEffect(() => {
     if (propView) setView(propView);
   }, [propView]);
+
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any | null>(() => {
-    const cached = localStorage.getItem("shield_result");
-    return cached ? JSON.parse(cached) : null;
-  });
+  const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [language, setLanguage] = useState<Lang>(() => (localStorage.getItem("shield_lang") as Lang) || "en");
-  const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(() => localStorage.getItem("shield_scanned_image_url"));
-  const [scannedImageBase64, setScannedImageBase64] = useState<string | null>(() => localStorage.getItem("shield_scanned_image_base64"));
-  const [chatMessages, setChatMessages] = useState<any[]>(() => {
-    const cached = localStorage.getItem("shield_chat_messages");
-    return cached ? JSON.parse(cached) : [];
-  });
+  const [scannedImageUrl, setScannedImageUrl] = useState<string | null>(null);
+  const [scannedImageBase64, setScannedImageBase64] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [showInstructions, setShowInstructions] = useState(false);
 
+  // Helper for user-specific storage keys
+  const getStorageKey = (key: string) => {
+    if (!session?.user?.id) return null;
+    return `shield_${session.user.id}_${key}`;
+  };
+
   useEffect(() => {
     localStorage.setItem("shield_view", view);
   }, [view]);
 
+  // Load user data when session is established
   useEffect(() => {
-    if (result) {
-      localStorage.setItem("shield_result", JSON.stringify(result));
-    } else {
-      localStorage.removeItem("shield_result");
+    if (!session?.user?.id) {
+      // Clear data if no user
+      setResult(null);
+      setScannedImageUrl(null);
+      setScannedImageBase64(null);
+      setChatMessages([]);
+      return;
     }
-  }, [result]);
+
+    const userId = session.user.id;
+    
+    const cachedResult = localStorage.getItem(`shield_${userId}_result`);
+    if (cachedResult) setResult(JSON.parse(cachedResult));
+    
+    const cachedUrl = localStorage.getItem(`shield_${userId}_scanned_image_url`);
+    if (cachedUrl) setScannedImageUrl(cachedUrl);
+    
+    const cachedBase64 = localStorage.getItem(`shield_${userId}_scanned_image_base64`);
+    if (cachedBase64) setScannedImageBase64(cachedBase64);
+    
+    const cachedChat = localStorage.getItem(`shield_${userId}_chat_messages`);
+    if (cachedChat) setChatMessages(JSON.parse(cachedChat));
+  }, [session]);
+
+  // Save user data
+  useEffect(() => {
+    const key = getStorageKey("result");
+    if (key) {
+      if (result) localStorage.setItem(key, JSON.stringify(result));
+      else localStorage.removeItem(key);
+    }
+  }, [result, session]);
+
+  useEffect(() => {
+    const key = getStorageKey("scanned_image_url");
+    if (key) {
+      if (scannedImageUrl) localStorage.setItem(key, scannedImageUrl);
+      else localStorage.removeItem(key);
+    }
+  }, [scannedImageUrl, session]);
+
+  useEffect(() => {
+    const key = getStorageKey("scanned_image_base64");
+    if (key) {
+      if (scannedImageBase64) localStorage.setItem(key, scannedImageBase64);
+      else localStorage.removeItem(key);
+    }
+  }, [scannedImageBase64, session]);
+
+  useEffect(() => {
+    const key = getStorageKey("chat_messages");
+    if (key) {
+      localStorage.setItem(key, JSON.stringify(chatMessages));
+    }
+  }, [chatMessages, session]);
 
   useEffect(() => {
     localStorage.setItem("shield_lang", language);
   }, [language]);
-
-  useEffect(() => {
-    if (scannedImageUrl) {
-      localStorage.setItem("shield_scanned_image_url", scannedImageUrl);
-    } else {
-      localStorage.removeItem("shield_scanned_image_url");
-    }
-  }, [scannedImageUrl]);
-
-  useEffect(() => {
-    if (scannedImageBase64) {
-      localStorage.setItem("shield_scanned_image_base64", scannedImageBase64);
-    } else {
-      localStorage.removeItem("shield_scanned_image_base64");
-    }
-  }, [scannedImageBase64]);
-
-  useEffect(() => {
-    localStorage.setItem("shield_chat_messages", JSON.stringify(chatMessages));
-  }, [chatMessages]);
 
   useEffect(() => {
     const handleSelectScan = (e: any) => {
