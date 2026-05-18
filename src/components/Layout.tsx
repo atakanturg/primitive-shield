@@ -5,11 +5,12 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowDown } from 'lucide-react';
-import { PlanetCanvas } from '../components/PlanetEntity';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Layout() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const { t } = useLanguage();
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -59,9 +60,10 @@ export default function Layout() {
 
   const getPageTitle = () => {
     switch (location.pathname) {
-      case '/scan': return 'SCAN';
-      case '/chat': return 'CHAT';
-      case '/dashboard': return 'DASHBOARD';
+      case '/scan': return t.scan.toUpperCase();
+      case '/chat': return t.chat.toUpperCase();
+      case '/dashboard': return t.dashboard.toUpperCase();
+      case '/results': return t.results.toUpperCase();
       default: return 'SHIELD';
     }
   };
@@ -82,7 +84,7 @@ export default function Layout() {
               className="w-12 h-12 border border-terra-ink border-t-transparent rounded-full"
             />
             <div className="text-xs font-sans font-bold tracking-[0.3em] uppercase text-terra-ink">
-              Initializing Primitive Shield
+              {t.initializing}
             </div>
           </motion.div>
         )}
@@ -122,10 +124,10 @@ export default function Layout() {
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-[0.3em] text-terra-muted">
             <div>Primitive Shield © 2026</div>
             <div className="flex gap-8">
-              <a href="#" className="hover:text-terra-ink transition-colors">Privacy</a>
-              <a href="#" className="hover:text-terra-ink transition-colors">Terms</a>
+              <a href="#" className="hover:text-terra-ink transition-colors">{t.privacy}</a>
+              <a href="#" className="hover:text-terra-ink transition-colors">{t.terms}</a>
             </div>
-            <div>Status: Optimal</div>
+            <div>{t.status}</div>
           </div>
         </footer>
       </div>
