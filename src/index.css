@@ -1,40 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Inter:wght@300;400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Cormorant Garamond", serif;
+  --font-serif: "Cormorant Garamond", serif;
+  
+  --color-terra-bg: #fdfdfd; /* Pure white/off-white */
+  --color-terra-surface: #f5f5f5; /* Subtle gray */
+  --color-terra-clay: #4a4a4a; /* Dark gray accent instead of clay */
+  --color-terra-sage: #e0e0e0; /* Light gray */
+  --color-terra-ink: #0a0a0a; /* Absolute black */
+  --color-terra-muted: #666666; /* Elegant mid-gray */
+  --color-terra-border: #eaeaea; /* Crisp border */
 }
 
-html {
-  scroll-behavior: smooth;
+@layer base {
+  body {
+    @apply bg-terra-bg text-terra-ink font-sans selection:bg-terra-ink selection:text-white;
+    overflow-x: hidden;
+  }
 }
 
-/* Drag-and-drop visual feedback */
-.drop-zone-active {
-  border-color: #888 !important;
-  background-color: rgba(0,0,0,0.04) !important;
+@layer utilities {
+  @keyframes fade-up {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-down {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.5s ease-out forwards;
+  }
+
+  .animate-fade-down {
+    animation: fade-down 0.5s ease-out forwards;
+  }
 }
 
-/* Subtle snappy fade-in animation */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-up {
-  animation: fadeUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.smooth-shadow {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08); /* Sophisticated deep shadow */
 }
 
-@keyframes pulse-slow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-.animate-pulse-slow {
-  animation: pulse-slow 2s ease-in-out infinite;
+.natural-gradient {
+  background: linear-gradient(135deg, var(--color-terra-bg) 0%, var(--color-terra-surface) 100%);
 }
 
-.bg-grid-pattern {
-  background-image: linear-gradient(to right, #88888815 1px, transparent 1px),
-                    linear-gradient(to bottom, #88888815 1px, transparent 1px);
-  background-size: 24px 24px;
+::-webkit-scrollbar {
+  width: 4px; /* Thin, elegant scrollbar */
 }
+
+::-webkit-scrollbar-track {
+  background: var(--color-terra-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-terra-border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-terra-ink);
+}
+
