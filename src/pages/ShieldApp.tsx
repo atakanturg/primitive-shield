@@ -38,9 +38,9 @@ const t = {
     home: "Home", scan: "Scan", dashboard: "Dashboard", results: "Results", chat: "Chat",
     title: "Primitive Shield",
     hook: "85,000+ informal or illegal evictions", hookSub: "Occur in Miami-Dade County every year.",
-    problem: "Illegal by design.",
-    problemSub: "Informal evictions violate Florida Statute 83.56, which requires a formal 3-day notice and full court process. Landlords skip this to bypass tenant rights.",
-    problemStat1: "No valid notice given", problemStat2: "No court filing", problemStat3: "Illegal self-help methods",
+    problem: "Illegal Evictions.",
+    problemSub: "Florida law requires landlords to provide formal notice and obtain a court order before removing a tenant. Skipping these steps to force a tenant out is a violation of state law.",
+    problemStat1: "No Written Notice", problemStat2: "No Court Order", problemStat3: "Illegal Lockouts",
     solution: "Our Solution.",
     solutionSub: "Primitive Shield cross-reference your notice against Florida Chapter 83 and the Fair Housing Act in seconds.",
     solutionCTA: "Upload your notice now",
@@ -106,9 +106,9 @@ const t = {
     home: "Inicio", scan: "Escanear", dashboard: "Panel", results: "Resultados", chat: "Chat",
     title: "Escudo Primitivo",
     hook: "Más de 85,000 desalojos informales o ilegales", hookSub: "Ocurren en el condado de Miami-Dade cada año.",
-    problem: "Ilegal por diseño.",
-    problemSub: "Los desalojos informales violan el Estatuto 83.56 de Florida, que exige un aviso formal de 3 días y proceso judicial. Los propietarios se lo saltan para eludir la ley.",
-    problemStat1: "Sin aviso válido", problemStat2: "Sin presentación judicial", problemStat3: "Métodos ilegales",
+    problem: "Desalojos Ilegales.",
+    problemSub: "La ley de Florida exige que los propietarios proporcionen un aviso formal y obtengan una orden judicial antes de desalojar a un inquilino. Saltarse estos pasos es una violación de la ley estatal.",
+    problemStat1: "Sin Aviso Escrito", problemStat2: "Sin Orden Judicial", problemStat3: "Cierres Ilegales",
     solution: "Nuestra solución.",
     solutionSub: "Primitive Shield contrasta su aviso con el Capítulo 83 de Florida y la Ley de Vivienda Justa en segundos.",
     solutionCTA: "Sube tu aviso ahora",
@@ -174,9 +174,9 @@ const t = {
     home: "Akey", scan: "Eskane", dashboard: "Dachbòd", results: "Rezilta", chat: "Chat",
     title: "Pwotèksyon Primitif",
     hook: "Plis pase 85,000 degèpisman enfòmèl oswa ilegal", hookSub: "Rive nan Miami-Dade County chak ane.",
-    problem: "Ilegal pa konsepsyon.",
-    problemSub: "Degèpisman enfòmèl vyole Estatì 83.56 nan Florid, ki egzije yon avi ekri 3 jou ak pwosesis tribinal. Propriyetè yo pa swiv sa pou kontourne lwa a.",
-    problemStat1: "Pa gen avi valid", problemStat2: "Pa gen depo tribinal", problemStat3: "Metòd ilegal",
+    problem: "Degèpisman Ilegal.",
+    problemSub: "Lwa Florid egzije pou mèt kay yo bay avi fòmèl epi jwenn yon lòd tribinal anvan yo mete yon lokatè deyò. Sote etap sa yo pou fòse yon lokatè pati se yon vyolasyon lwa leta.",
+    problemStat1: "Pa Gen Avi Ekri", problemStat2: "Pa Gen Lòd Tribinal", problemStat3: "Chanjman Kle Ilegal",
     solution: "Solisyon nou an.",
     solutionSub: "Primitive Shield konpare avi ou ak Chapit 83 Florid ak Lwa Lojman Ekitab nan kèk segond.",
     solutionCTA: "Telechaje avi ou kounye a",
@@ -948,6 +948,25 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
           <span className="font-mono text-xs uppercase tracking-widest text-terra-muted">Primitive Shield</span>
           <span className="font-mono text-[10px] uppercase tracking-widest text-terra-ink mt-1">{t[language].hydratingSession}</span>
         </div>
+      </div>
+    );
+  }
+
+  // Require session for all pages except home
+  if (!session && view !== "home") {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
+        <div className="w-16 h-16 bg-terra-surface border border-terra-border rounded-none flex items-center justify-center mx-auto mb-8">
+          <Shield305 className="w-8 h-8 text-terra-ink" />
+        </div>
+        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t[language].signInRequired}</h2>
+        <p className="text-terra-muted mb-8 leading-relaxed">{t[language].historySub}</p>
+        <button 
+          onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} 
+          className="px-10 py-5 bg-terra-ink text-white hover:bg-terra-muted font-mono text-[10px] uppercase tracking-widest rounded-none transition-all duration-300 border border-terra-ink shadow-2xl"
+        >
+          {t[language].signInBtn}
+        </button>
       </div>
     );
   }

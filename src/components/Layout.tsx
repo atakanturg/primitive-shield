@@ -98,7 +98,7 @@ export default function Layout() {
         ref={scrollRef}
         className="flex-grow overflow-y-auto overflow-x-hidden relative z-10 w-full flex flex-col"
       >
-        <div className="w-full flex-shrink-0 pt-6 flex flex-col items-center">
+        <div className="w-full flex-shrink-0 pt-12 pb-8 flex flex-col items-center">
           {/* Top Text */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -111,27 +111,6 @@ export default function Layout() {
               <br/>
               <span className="font-bold text-lg md:text-xl text-terra-ink/90 drop-shadow-sm">{getPageTitle()}</span>
             </h2>
-          </motion.div>
-
-          {/* Continuous Planet with Logo Overlay */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1], delay: isLoading ? 2.2 : 0.2 }}
-            className="w-[350px] h-[350px] md:w-[600px] md:h-[600px] relative flex items-center justify-center -mt-4 md:-mt-10"
-          >
-            <div className="absolute inset-0 pointer-events-auto">
-              <PlanetCanvas />
-            </div>
-            <img 
-              src="/logo.png" 
-              alt="Company Logo" 
-              className="w-40 md:w-56 z-10 absolute pointer-events-none" 
-              style={{ filter: "brightness(0) drop-shadow(0px 4px 12px rgba(0,0,0,0.1))" }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }} 
-            />
           </motion.div>
         </div>
 
