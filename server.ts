@@ -3,7 +3,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import multer from "multer";
 import dotenv from "dotenv";
-import pdfParse from "pdf-parse";
+import { createRequire } from "module";
+const pdfParse = createRequire(import.meta.url)("pdf-parse");
 
 dotenv.config();
 
@@ -145,7 +146,7 @@ async function getGeminiPart(imageUrl: string): Promise<any> {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json({ limit: "50mb" }));
 

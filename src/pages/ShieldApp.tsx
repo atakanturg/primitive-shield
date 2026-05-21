@@ -1,4 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import { motion } from "motion/react";
+import { AmbientMesh } from "../components/AmbientMesh";
+import { TiltCard } from "../components/TiltCard";
 import { Upload, AlertTriangle, ArrowRight, ArrowLeft, FileText, CheckCircle, XCircle, RefreshCw, LayoutDashboard, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { jsPDF } from "jspdf";
@@ -36,7 +39,7 @@ type ViewState = "home" | "upload" | "results" | "instructions" | "dashboard" | 
 
 export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   const navigate = useNavigate();
-  const { language, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [view, setView] = useState<ViewState>(() => propView || (localStorage.getItem("shield_view") as ViewState) || "home");
 
   useEffect(() => {
@@ -145,6 +148,7 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   }, []);
 
   useEffect(() => {
+    if (!supabase) { setAuthLoading(false); return; }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -367,98 +371,183 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   // ─── HOME ───
   const HomePage = () => {
     return (
-      <div className="animate-fade-up">
-        {/* Chapter 1: The Hook */}
-        <section className="relative min-h-[75vh] flex flex-col justify-center overflow-hidden">
-          <div className="absolute inset-0 z-0">
-            <img
-              src="https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?q=80&w=2000&auto=format&fit=crop"
-              alt="Urban housing"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/80" />
+      <div>
+        {/* Hero */}
+        <section className="px-6 md:px-12 pt-8 pb-28 max-w-5xl mx-auto" style={{ position: 'relative' }}>
+          {/* Scan-line effect */}
+          <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+            <style>{`
+              @keyframes scanline { 0%{top:10%} 100%{top:90%} }
+              @keyframes flag-pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.5);opacity:1} }
+            `}</style>
+            {/* Document silhouette */}
+            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 220, height: 290, background: 'rgba(10,10,10,.04)', border: '1px solid rgba(10,10,10,.07)', borderRadius: 4, filter: 'blur(1px)' }} />
+            {/* Scan bar */}
+            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 220, height: 2, background: 'linear-gradient(to right, transparent, oklch(0.52 0.14 28 / .45), transparent)', animation: 'scanline 3s ease-in-out infinite alternate', borderRadius: 1 }} />
+            {/* Flag dot */}
+            <div style={{ position: 'absolute', left: 'calc(50% + 60px)', top: '52%', width: 8, height: 8, borderRadius: '50%', background: 'oklch(0.52 0.14 28)', animation: 'flag-pulse 3s ease-in-out infinite' }} />
           </div>
-          <div className="relative z-10 max-w-4xl mx-auto px-6 w-full mt-[-5vh] flex flex-col items-center text-center">
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-white tracking-tighter leading-[1] mb-6">
-              {t.hook}
-            </h1>
-            <p className="text-lg sm:text-2xl text-terra-border font-light leading-relaxed max-w-xl mb-10">
-              {t.hookSub}
-            </p>
-            <button
-              onClick={() => document.getElementById('chapter-3')?.scrollIntoView({ behavior: 'smooth' })}
-              className="inline-flex items-center text-white border border-white/20 px-8 py-4 rounded-none bg-transparent hover:bg-white hover:text-terra-ink transition-colors backdrop-blur-md text-xs font-mono uppercase tracking-widest"
-            >
-              <span>Go to solution</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </button>
-          </div>
-        </section>
-
-        {/* Chapter 2: The Problem */}
-        <section id="chapter-2" className="relative bg-transparent text-terra-ink py-28">
-          <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-            <div>
-              <span className="inline-block font-mono text-xs uppercase tracking-widest text-terra-muted mb-4">The Problem</span>
-              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
-                {t.problem}
-              </h2>
-              <p className="text-lg text-terra-muted leading-relaxed mb-10">
-                {t.problemSub}
-              </p>
-              <div className="grid grid-cols-3 gap-6">
-                {[t.problemStat1, t.problemStat2, t.problemStat3].map((stat, i) => (
-                  <div key={i} className="border-l border-terra-ink pl-4 py-2">
-                    <p className="text-[10px] font-mono font-bold text-terra-muted uppercase tracking-widest leading-snug mb-1">0{i+1}</p>
-                    <p className="text-[11px] font-bold text-terra-ink uppercase tracking-wider leading-snug">{stat}</p>
-                  </div>
+          <AmbientMesh color="oklch(0.52 0.14 28)" />
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1.1, delay: 0.2, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+            className="flex flex-col items-center text-center space-y-10"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="inline-flex items-center gap-2.5 px-5 py-2.5 border border-terra-border rounded-full text-[10px] font-bold tracking-[0.25em] uppercase text-terra-muted bg-white/70 backdrop-blur-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                Miami-Dade Housing Protection
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['en', 'es', 'ht'] as const).map(code => (
+                  <button
+                    key={code}
+                    onClick={() => setLanguage(code)}
+                    style={{
+                      padding: '6px 12px', borderRadius: 999,
+                      fontFamily: 'var(--f-mono)', fontSize: 9, fontWeight: 600,
+                      letterSpacing: '.18em', textTransform: 'uppercase',
+                      background: language === code ? 'var(--accent)' : 'transparent',
+                      color: language === code ? '#fafaf7' : 'var(--muted)',
+                      border: `1px solid ${language === code ? 'var(--accent)' : 'var(--rule)'}`,
+                      cursor: 'pointer', transition: 'all .2s',
+                    }}
+                  >
+                    {code === 'en' ? 'EN' : code === 'es' ? 'ES' : 'HT'}
+                  </button>
                 ))}
               </div>
             </div>
-            <div className="rounded-none overflow-hidden border border-terra-ink aspect-[4/5] shadow-sm">
-              <img
-                src="https://images.unsplash.com/photo-1589829545856-d10d557cf95f?q=80&w=1000&auto=format&fit=crop"
-                alt="Tenant reviewing legal documents"
-                className="w-full h-full object-cover"
-              />
-            </div>
+
+            <h1 className="font-serif font-light text-4xl md:text-6xl lg:text-[5rem] leading-[1.04] tracking-tight text-terra-ink max-w-3xl">
+              {t.hook}
+            </h1>
+
+            <p className="text-terra-muted text-base md:text-xl font-light leading-loose max-w-lg">
+              {t.hookSub}
+            </p>
+
+            <motion.button
+              onClick={() => navigateTo("upload")}
+              className="inline-flex items-center gap-2 px-9 py-4 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full"
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            >
+              {t.solutionCTA}
+              <ArrowRight className="w-3.5 h-3.5" />
+            </motion.button>
+          </motion.div>
+        </section>
+
+        {/* Stats strip */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.5 }}
+          transition={{ duration: 0.8 }}
+          className="border-y border-terra-border bg-white/60 backdrop-blur-sm"
+        >
+          <div className="max-w-5xl mx-auto px-6 md:px-12 grid grid-cols-3 divide-x divide-terra-border">
+            {[t.problemStat1, t.problemStat2, t.problemStat3].map((stat, i) => (
+              <div key={i} className="px-6 py-10 first:pl-0 last:pr-0 space-y-2">
+                <div className="text-[9px] font-bold uppercase tracking-[0.25em] text-terra-muted/60">
+                  {`0${i + 1}`}
+                </div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-terra-ink leading-tight">
+                  {stat}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* Problem */}
+        <section className="py-32 md:py-40 px-6 md:px-12 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-16 items-start">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.85 }}
+              className="space-y-7"
+            >
+              <p className="text-[9px] font-bold uppercase tracking-[0.38em] text-terra-muted">
+                The Problem
+              </p>
+              <h2 className="text-3xl md:text-5xl font-serif font-light tracking-tight text-terra-ink leading-[1.1]">
+                {t.problem}
+              </h2>
+              <p className="text-terra-muted text-base font-light leading-loose">
+                {t.problemSub}
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.85, delay: 0.15 }}
+              className="space-y-5 pt-4 md:pt-14"
+            >
+              {[t.problemStat1, t.problemStat2, t.problemStat3].map((stat, i) => (
+                <div key={i} className="flex items-start gap-5 border-t border-terra-border pt-5">
+                  <span className="text-[9px] font-bold font-mono text-terra-muted/50 mt-0.5 tabular-nums">
+                    0{i + 1}
+                  </span>
+                  <span className="text-sm font-bold uppercase tracking-[0.2em] text-terra-ink leading-relaxed">
+                    {stat}
+                  </span>
+                </div>
+              ))}
+            </motion.div>
           </div>
         </section>
 
-        {/* Chapter 3: Our Solution — includes CTA */}
-        <section id="chapter-3" className="relative bg-terra-ink text-white py-28 border-t border-b border-white/15">
-          <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-            <div className="rounded-none overflow-hidden border border-white/10 aspect-[4/5]">
-              <img
-                src="https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=1000&auto=format&fit=crop"
-                alt="Attorney reviewing tenant case"
-                className="w-full h-full object-cover opacity-90"
-              />
-            </div>
-            <div>
-              <span className="inline-block font-mono text-xs uppercase tracking-widest text-terra-muted mb-4">Our Solution</span>
-              <h2 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
+        {/* Solution (dark) */}
+        <section className="bg-terra-ink text-terra-bg py-32 md:py-44 px-6 md:px-12">
+          <div className="max-w-5xl mx-auto space-y-20">
+            <motion.div
+              initial={{ opacity: 0, y: 36 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] }}
+              className="space-y-7"
+            >
+              <p className="text-[9px] font-bold uppercase tracking-[0.38em] text-terra-bg/40">
+                Our Solution
+              </p>
+              <h2 className="text-4xl md:text-6xl font-serif font-light leading-[1.08] tracking-tight">
                 {t.solution}
               </h2>
-              <p className="text-lg text-terra-border leading-relaxed mb-10">
+              <p className="text-terra-bg/50 font-light text-base leading-loose max-w-xl">
                 {t.solutionSub}
               </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
               <button
                 onClick={() => navigateTo("upload")}
-                className="inline-flex items-center group bg-white text-terra-ink px-8 py-4 rounded-none hover:bg-terra-border transition-all text-xs font-mono uppercase tracking-widest"
+                className="inline-flex items-center gap-2 px-9 py-4 bg-white text-terra-ink text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-bg/90 transition-colors duration-300"
               >
-                <span>{t.solutionCTA}</span>
-                <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
+                {t.solutionCTA}
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* Disclaimer */}
-        <section className="max-w-5xl mx-auto px-6 py-12">
-          <div className="flex items-start space-x-4 border border-yellow-500 bg-yellow-400/10 text-yellow-900 p-6 rounded-none">
-            <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
-            <p className="text-xs font-mono uppercase tracking-wide leading-relaxed">
+        <section className="max-w-5xl mx-auto px-6 md:px-12 py-14">
+          <div className="flex items-start gap-4 border border-amber-300 bg-amber-50/60 text-amber-900 p-6 rounded-2xl">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
+            <p className="text-[11px] font-mono uppercase tracking-wide leading-relaxed">
               <strong>Legal Disclaimer:</strong> Primitive Shield provides AI-powered analysis for informational purposes only. It is not a substitute for professional legal counsel. Always consult a licensed attorney for legal advice.
             </p>
           </div>
@@ -469,107 +558,145 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
 
   // ─── UPLOAD ───
   const UploadPage = () => (
-    <div className="animate-fade-up">
+    <motion.div className="animate-fade-up" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center min-h-[70vh] px-6">
+        <motion.div
+          className="flex flex-col items-center justify-center min-h-[60vh] px-6"
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+        >
           <div className="relative mb-8">
-            <div className="w-16 h-16 border-2 border-terra-border rounded-full" />
-            <div className="absolute inset-0 w-16 h-16 border-2 border-terra-ink rounded-full border-t-transparent animate-spin" />
+            <div className="w-14 h-14 border border-terra-border rounded-full" />
+            <div className="absolute inset-0 w-14 h-14 border border-terra-ink rounded-full border-t-transparent animate-spin" style={{ borderTopColor: 'var(--accent)' }} />
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight text-terra-ink mb-2">{t.analyzingDoc}</h2>
-          <p className="text-sm text-terra-muted font-mono">{t.crossRef}</p>
-        </div>
+          <h2 className="text-2xl md:text-3xl font-serif font-light tracking-tight text-terra-ink mb-3">
+            {t.analyzingDoc}
+          </h2>
+          <p className="text-sm text-terra-muted font-mono tracking-widest uppercase">{t.crossRef}</p>
+        </motion.div>
       ) : (
         <div className="max-w-xl mx-auto px-6 py-16">
-          <button onClick={() => navigateTo("home")} className="flex items-center text-xs text-terra-muted hover:text-terra-ink transition-colors mb-8 group">
+          <button
+            onClick={() => navigateTo("home")}
+            className="flex items-center text-[10px] font-bold uppercase tracking-[0.2em] text-terra-muted hover:text-terra-ink transition-colors mb-10 group"
+          >
             <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t.back}
           </button>
 
-          <h1 className="text-3xl font-bold tracking-tight text-terra-ink mb-2">{t.scanTitle}</h1>
-          <p className="text-sm text-terra-muted mb-6 leading-relaxed">
-            {t.scanSub}
-          </p>
-          <button 
+          <h1 className="text-3xl md:text-4xl font-serif font-light tracking-tight text-terra-ink mb-3">
+            {t.scanTitle}
+          </h1>
+          <p className="text-sm text-terra-muted mb-8 leading-loose font-light">{t.scanSub}</p>
+
+          <button
             type="button"
-            onClick={() => setShowInstructions(!showInstructions)} 
-            className="mb-6 inline-flex items-center space-x-3 px-6 py-3 border border-terra-ink bg-terra-ink text-white text-xs font-mono uppercase tracking-widest rounded-none hover:bg-terra-ink transition-colors shadow-sm"
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="mb-7 inline-flex items-center gap-3 px-6 py-3 border border-terra-border bg-white/60 text-terra-ink text-[10px] font-bold uppercase tracking-[0.22em] rounded-full hover:bg-terra-ink hover:text-white hover:border-terra-ink transition-all duration-300"
           >
             <span>{showInstructions ? t.hideInstructions : t.showInstructions}</span>
-            <span className="font-mono text-sm leading-none font-bold">{showInstructions ? "−" : "+"}</span>
+            <span className="text-sm leading-none font-bold">{showInstructions ? "−" : "+"}</span>
           </button>
 
           {showInstructions && (
-            <div className="mb-6 space-y-4 p-6 border border-terra-ink bg-terra-surface/20 animate-fade-down rounded-none">
-              <h2 className="text-xs font-mono uppercase tracking-widest text-terra-muted mb-3">{t.tipsTitle}</h2>
-              <div className="space-y-3">
-                {[
-                  t.tipsStep1,
-                  t.tipsStep2,
-                  t.tipsStep3,
-                  t.tipsStep4,
-                  t.tipsStep5,
-                ].map((step, i) => (
-                  <div key={i} className="flex items-start space-x-3 text-sm text-terra-ink leading-relaxed border-b border-terra-border last:border-0 pb-2 last:pb-0">
-                    <span className="font-mono text-xs font-bold text-terra-ink mt-0.5">0{i + 1}.</span>
-                    <p>{step}</p>
+            <div className="mb-8 space-y-3 p-7 border border-terra-border bg-white/50 backdrop-blur-sm animate-fade-down rounded-2xl">
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.3em] text-terra-muted mb-4">
+                {t.tipsTitle}
+              </h2>
+              <div className="space-y-4">
+                {[t.tipsStep1, t.tipsStep2, t.tipsStep3, t.tipsStep4, t.tipsStep5].map((step, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-4 text-sm text-terra-ink leading-relaxed border-b border-terra-border last:border-0 pb-3 last:pb-0"
+                  >
+                    <span className="font-mono text-[9px] font-bold text-terra-muted mt-0.5 tabular-nums">
+                      0{i + 1}.
+                    </span>
+                    <p className="font-light">{step}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <TiltCard intensity={3} style={{ display: 'block' }}>
+          <form onSubmit={handleSubmit} className="space-y-5">
             <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
             {!preview ? (
-              <div
+              <motion.div
                 onClick={() => fileInputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`border border-dashed border-terra-border rounded-none cursor-pointer transition-all p-16 flex flex-col items-center justify-center text-center group bg-terra-surface/20 hover:bg-terra-surface/40 hover:border-terra-ink`}
+                animate={isDragging ? { scale: 1.02, borderColor: 'var(--accent)' } : { scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                className="border border-dashed rounded-2xl cursor-pointer transition-colors p-16 flex flex-col items-center justify-center text-center group backdrop-blur-sm"
+                style={{
+                  borderColor: isDragging ? 'var(--accent)' : 'var(--rule)',
+                  background: isDragging ? 'var(--accent-soft)' : 'rgba(255,255,255,.4)',
+                  boxShadow: isDragging ? '0 0 0 4px var(--accent-soft)' : 'none',
+                  transition: 'background .2s, box-shadow .2s',
+                }}
               >
-                <div className="mb-4 text-terra-muted group-hover:text-terra-ink transition-colors">
-                  <Upload className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-mono uppercase tracking-widest text-terra-ink mb-1">
+                <motion.div
+                  animate={isDragging ? { y: -4, color: 'var(--accent)' } : { y: 0 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                  className="mb-4"
+                >
+                  <Upload className="w-6 h-6 stroke-[1.5]" />
+                </motion.div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] mb-1.5" style={{ color: isDragging ? 'var(--accent)' : 'var(--ink)' }}>
                   {isDragging ? "Drop file here" : t.clickDrag}
                 </span>
-                <span className="text-[10px] font-mono text-terra-muted uppercase tracking-widest">{t.fileFormats}</span>
-              </div>
+                <span className="text-[9px] font-mono uppercase tracking-[0.2em]" style={{ color: 'var(--muted)' }}>
+                  {t.fileFormats}
+                </span>
+              </motion.div>
             ) : (
-              <div className="border border-terra-ink p-6 rounded-none bg-terra-surface/20">
-                <div className="flex items-center">
-                  <div className="w-16 h-16 rounded-none overflow-hidden bg-terra-border border border-terra-border flex-shrink-0 mr-4">
+              <div className="border border-terra-border bg-white/60 backdrop-blur-sm rounded-2xl p-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-terra-surface border border-terra-border flex-shrink-0">
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-grow min-w-0">
-                    <p className="text-xs font-mono uppercase tracking-widest text-terra-ink truncate">{file?.name}</p>
-                    <p className="text-[10px] font-mono text-terra-muted mt-0.5">{(file ? file.size / 1024 / 1024 : 0).toFixed(2)} MB</p>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-terra-ink truncate">
+                      {file?.name}
+                    </p>
+                    <p className="text-[10px] font-mono text-terra-muted mt-1">
+                      {(file ? file.size / 1024 / 1024 : 0).toFixed(2)} MB
+                    </p>
                   </div>
-                  <button type="button" onClick={resetUpload} className="text-xs font-mono uppercase tracking-widest text-terra-muted hover:text-red-500 transition-colors ml-4 shrink-0">{t.removeBtn}</button>
+                  <button
+                    type="button"
+                    onClick={resetUpload}
+                    className="text-[10px] font-bold uppercase tracking-[0.2em] text-terra-muted hover:text-red-500 transition-colors shrink-0"
+                  >
+                    {t.removeBtn}
+                  </button>
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50/20 border border-red-500 rounded-none p-4 flex items-start space-x-3">
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
                 <XCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                <p className="text-xs font-mono uppercase tracking-wide text-red-755 leading-relaxed">{error}</p>
+                <p className="text-xs font-mono uppercase tracking-wide text-red-700 leading-relaxed">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={!file}
-              className="w-full flex justify-center items-center py-4 px-4 text-xs font-mono uppercase tracking-widest text-white bg-terra-ink hover:bg-terra-ink disabled:opacity-30 disabled:cursor-not-allowed transition-all rounded-none border border-terra-ink"
+              className="w-full flex justify-center items-center py-4 px-6 text-[10px] font-bold uppercase tracking-[0.25em] text-white bg-terra-ink hover:bg-terra-ink/80 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 rounded-full"
             >
               {t.analyzeBtn}
             </button>
           </form>
+          </TiltCard>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 
   // ─── INSTRUCTIONS ───
@@ -671,84 +798,115 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
     const hasDetailedData = result.flagged_clauses && result.flagged_clauses.length > 0;
 
     return (
-      <div className="animate-fade-up">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        className="animate-fade-up"
+      >
         {/* Status Banner */}
-        <div className={`border-b-4 ${cfg.accent}`}>
-          <div className="max-w-5xl mx-auto px-6 py-12">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
+        <motion.div
+          initial={{ y: -12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+          className={`border-b-2 ${cfg.accent} bg-white/60 backdrop-blur-sm`}
+        >
+          <div className="max-w-5xl mx-auto px-6 md:px-12 py-10">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
                 <span className="text-terra-ink">{cfg.icon}</span>
-                <span className="font-mono text-xs uppercase tracking-widest text-terra-muted">{result.status}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-terra-muted">
+                  {result.status}
+                </span>
               </div>
-              <button 
+              <button
                 onClick={() => navigateTo("dashboard")}
-                className="text-[10px] font-mono uppercase tracking-widest text-terra-muted hover:text-terra-ink flex items-center gap-2"
+                className="text-[9px] font-bold uppercase tracking-[0.22em] text-terra-muted hover:text-terra-ink flex items-center gap-2 transition-colors"
               >
                 <ArrowLeft className="w-3 h-3" /> {t.backHistory}
               </button>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-terra-ink mb-4">{cfg.label}</h1>
-            <p className="text-lg text-terra-muted leading-relaxed max-w-2xl">{result.summary_of_violations}</p>
+            <h1 className="text-2xl md:text-4xl font-serif font-light tracking-tight text-terra-ink mb-4">
+              {cfg.label}
+            </h1>
+            <p className="text-base text-terra-muted leading-loose max-w-2xl font-light">
+              {result.summary_of_violations}
+            </p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="max-w-5xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-5 gap-12">
+        <div className="max-w-5xl mx-auto px-6 md:px-12 py-14 grid grid-cols-1 lg:grid-cols-5 gap-12">
           {/* Left — Flagged Clauses */}
           <div className="lg:col-span-3 space-y-8">
             {hasDetailedData ? (
               <div>
-                <h2 className="text-xs font-mono uppercase tracking-widest text-terra-muted mb-6">{t.flaggedClauses}</h2>
-                <div className="space-y-6">
+                <h2 className="text-[9px] font-bold uppercase tracking-[0.3em] text-terra-muted mb-7">
+                  {t.flaggedClauses}
+                </h2>
+                <div className="space-y-7">
                   {result.flagged_clauses.map((clause: any, i: number) => (
-                    <div key={i} className="border-t border-terra-border pt-6 pb-2 rounded-none">
-                      <div className="mb-3">
-                        <span className="inline-block bg-terra-ink text-white text-[9px] font-mono uppercase tracking-widest px-2.5 py-0.5 rounded-none">
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.1, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                      className="border-t border-terra-border pt-7"
+                    >
+                      <div className="mb-4">
+                        <span className="inline-flex items-center px-3 py-1 bg-terra-ink text-white text-[9px] font-bold uppercase tracking-[0.22em] rounded-full">
                           {clause.law_violated}
                         </span>
                       </div>
-                      <blockquote className="text-sm italic text-terra-muted bg-terra-surface p-4 mb-4 border-l border-terra-muted font-serif">
+                      <blockquote className="text-sm italic text-terra-muted bg-terra-surface/50 border border-terra-border p-5 mb-4 rounded-xl font-serif leading-relaxed">
                         "{clause.excerpt}"
                       </blockquote>
-                      <p className="text-sm text-terra-muted leading-relaxed font-sans">{clause.explanation}</p>
-                    </div>
+                      <p className="text-sm text-terra-muted leading-loose font-light">{clause.explanation}</p>
+                    </motion.div>
                   ))}
                 </div>
               </div>
             ) : result.status !== "legal" && result.status !== "illegible" ? (
-              <div className="p-8 border border-terra-border bg-terra-surface/30">
-                <p className="text-sm text-terra-muted italic">{t.detailedAnalysisOnlyNew}</p>
+              <div className="p-8 border border-terra-border bg-terra-surface/30 rounded-2xl">
+                <p className="text-sm text-terra-muted italic font-light">{t.detailedAnalysisOnlyNew}</p>
               </div>
             ) : null}
 
             {result.status === "legal" && (
-              <div className="border border-emerald-500 bg-emerald-50/20 p-6 rounded-none">
-                <h2 className="text-xs font-mono uppercase tracking-widest text-emerald-800 mb-2">{t.noViolations}</h2>
-                <p className="text-sm text-emerald-700 leading-relaxed">
-                  {t.noViolationsSub}
-                </p>
+              <div className="border border-emerald-200 bg-emerald-50/40 p-7 rounded-2xl">
+                <h2 className="text-[9px] font-bold uppercase tracking-[0.3em] text-emerald-800 mb-3">
+                  {t.noViolations}
+                </h2>
+                <p className="text-sm text-emerald-700 leading-loose font-light">{t.noViolationsSub}</p>
               </div>
             )}
 
             {result.status === "illegible" && (
-              <div className="border border-amber-500 bg-amber-50/20 p-6 rounded-none">
-                <h2 className="text-xs font-mono uppercase tracking-widest text-amber-800 mb-2">{t.cantRead}</h2>
-                <p className="text-sm text-amber-700 leading-relaxed mb-4">
-                  {t.cantReadSub}
-                </p>
-                <button onClick={() => { resetUpload(); navigateTo("upload"); }} className="inline-flex items-center border border-terra-ink bg-terra-ink text-white text-xs font-mono uppercase tracking-widest px-6 py-3 rounded-none hover:bg-terra-ink transition-colors shadow-sm">
-                  <RefreshCw className="w-3.5 h-3.5 mr-2" /> {t.reuploadBtn}
+              <div className="border border-amber-200 bg-amber-50/40 p-7 rounded-2xl">
+                <h2 className="text-[9px] font-bold uppercase tracking-[0.3em] text-amber-800 mb-3">
+                  {t.cantRead}
+                </h2>
+                <p className="text-sm text-amber-700 leading-loose font-light mb-6">{t.cantReadSub}</p>
+                <button
+                  onClick={() => { resetUpload(); navigateTo("upload"); }}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.22em] rounded-full hover:bg-terra-ink/80 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> {t.reuploadBtn}
                 </button>
               </div>
             )}
 
-            {/* Chat with Your Notice Button */}
             {scannedImageUrl && result.status !== "illegible" && (
-              <div className="mt-12 border border-terra-border p-8 text-center rounded-none bg-terra-surface/20">
-                <h3 className="text-xs font-mono uppercase tracking-widest text-terra-ink mb-2">{t.specificQuestions}</h3>
-                <p className="text-sm text-terra-muted mb-6 leading-relaxed">{t.chatSub}</p>
-                <button onClick={() => navigateTo("chat")} className="inline-flex items-center space-x-2 px-8 py-4 border border-terra-ink bg-terra-ink text-white font-mono uppercase tracking-widest text-xs rounded-none hover:bg-terra-ink transition-colors shadow-sm">
-                  <span>{t.chatWithNotice}</span>
-                  <ArrowRight className="w-4 h-4" />
+              <div className="mt-10 border border-terra-border bg-white/50 backdrop-blur-sm p-8 text-center rounded-2xl">
+                <h3 className="text-[9px] font-bold uppercase tracking-[0.3em] text-terra-ink mb-3">
+                  {t.specificQuestions}
+                </h3>
+                <p className="text-sm text-terra-muted mb-7 leading-loose font-light">{t.chatSub}</p>
+                <button
+                  onClick={() => navigateTo("chat")}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-ink/80 transition-colors"
+                >
+                  {t.chatWithNotice}
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -756,34 +914,46 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
 
           {/* Right — Action Plan */}
           <div className="lg:col-span-2">
-            <div className="bg-terra-ink text-white p-8 sticky top-20 border border-white/10 rounded-none shadow-sm">
-              <h2 className="text-xs font-mono uppercase tracking-widest text-terra-muted mb-6 pb-4 border-b border-white/10">{t.actionPlan}</h2>
+            <div className="bg-terra-ink text-white p-8 sticky top-20 rounded-2xl shadow-sm">
+              <h2 className="text-[9px] font-bold uppercase tracking-[0.3em] text-terra-bg/40 mb-6 pb-5 border-b border-white/10">
+                {t.actionPlan}
+              </h2>
               {result.action_plan && result.action_plan.length > 0 ? (
                 <ol className="space-y-5">
                   {result.action_plan.map((step: string, i: number) => (
-                    <li key={i} className="flex items-start">
-                      <span className="font-mono text-xs font-bold text-white/55 mr-3 shrink-0 mt-0.5">0{i + 1}.</span>
-                      <span className="text-sm leading-relaxed text-white/80">{step}</span>
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="font-mono text-[9px] font-bold text-white/40 shrink-0 mt-0.5 tabular-nums">
+                        0{i + 1}.
+                      </span>
+                      <span className="text-sm leading-loose text-white/75 font-light">{step}</span>
                     </li>
                   ))}
                 </ol>
               ) : (
-                <p className="text-sm text-white/50 italic mb-6">Action plan available for real-time scans.</p>
+                <p className="text-sm text-white/40 italic mb-6 font-light">
+                  Action plan available for real-time scans.
+                </p>
               )}
               <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
                 {result.status === "predatory" && (
-                  <button onClick={generatePDF} className="w-full border border-red-600 bg-red-600 text-white text-xs font-mono uppercase tracking-widest py-3.5 rounded-none hover:bg-red-700 transition-colors">
+                  <button
+                    onClick={generatePDF}
+                    className="w-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-[0.22em] py-4 rounded-full hover:bg-red-700 transition-colors"
+                  >
                     {t.defenseLetter}
                   </button>
                 )}
-                <button onClick={() => { resetUpload(); navigateTo("upload"); }} className="w-full border border-white bg-white text-terra-ink text-xs font-mono uppercase tracking-widest py-3.5 rounded-none hover:bg-terra-border transition-colors">
+                <button
+                  onClick={() => { resetUpload(); navigateTo("upload"); }}
+                  className="w-full bg-white text-terra-ink text-[10px] font-bold uppercase tracking-[0.22em] py-4 rounded-full hover:bg-terra-border transition-colors"
+                >
                   {t.scanAnother}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -794,30 +964,33 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center font-sans">
-        <div className="flex flex-col items-center justify-center animate-fade-up">
-          <div className="relative mb-6">
-            <div className="w-12 h-12 border-2 border-terra-border rounded-none" />
-            <div className="absolute inset-0 w-12 h-12 border-2 border-terra-ink rounded-none border-t-transparent animate-spin" />
+        <div className="flex flex-col items-center justify-center gap-6 animate-fade-up">
+          <div className="relative">
+            <div className="w-12 h-12 border border-terra-border rounded-full" />
+            <div className="absolute inset-0 w-12 h-12 border border-terra-ink rounded-full border-t-transparent animate-spin" />
           </div>
-          <span className="font-mono text-xs uppercase tracking-widest text-terra-muted">Primitive Shield</span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-terra-ink mt-1">{t.hydratingSession}</span>
+          <div className="text-center space-y-1">
+            <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-terra-muted">Primitive Shield</div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.3em] text-terra-ink/60">{t.hydratingSession}</div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Require session for all pages except home
   if (!session && view !== "home") {
     return (
-      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
-        <div className="w-16 h-16 bg-terra-surface border border-terra-border rounded-none flex items-center justify-center mx-auto mb-8">
+      <div className="max-w-2xl mx-auto px-6 py-28 text-center animate-fade-up">
+        <div className="w-16 h-16 bg-white border border-terra-border rounded-2xl flex items-center justify-center mx-auto mb-10 shadow-sm">
           <Shield305 className="w-8 h-8 text-terra-ink" />
         </div>
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t.signInRequired}</h2>
-        <p className="text-terra-muted mb-8 leading-relaxed">{t.historySub}</p>
-        <button 
-          onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} 
-          className="px-10 py-5 bg-terra-ink text-white hover:bg-terra-muted font-mono text-[10px] uppercase tracking-widest rounded-none transition-all duration-300 border border-terra-ink shadow-2xl"
+        <h2 className="text-2xl md:text-3xl font-serif font-light tracking-tight text-terra-ink mb-4">
+          {t.signInRequired}
+        </h2>
+        <p className="text-terra-muted mb-10 leading-loose font-light">{t.historySub}</p>
+        <button
+          onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+          className="inline-flex items-center gap-3 px-10 py-5 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-ink/80 transition-colors duration-300"
         >
           {t.signInBtn}
         </button>
@@ -854,14 +1027,14 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
         </main>
       </div>
 
-      {/* Persistent Footer */}
+      {/* Persistent Sign-in Footer */}
       {!session && (
-        <footer className="fixed bottom-24 left-6 right-6 border border-terra-border bg-white/90 backdrop-blur-md py-4 px-6 flex flex-col sm:flex-row items-center justify-between z-50 shadow-2xl">
-          <div className="font-sans text-[10px] font-bold uppercase tracking-[0.3em] text-terra-ink mb-4 sm:mb-0">
+        <footer className="fixed bottom-24 left-6 right-6 border border-terra-border bg-white/90 backdrop-blur-md py-4 px-7 flex flex-col sm:flex-row items-center justify-between z-50 rounded-2xl shadow-2xl">
+          <div className="font-sans text-[10px] font-bold uppercase tracking-[0.28em] text-terra-ink mb-4 sm:mb-0">
             {t.footerSignInMsg}
           </div>
-          <button 
-            className="bg-terra-ink text-white font-sans text-[10px] font-bold uppercase tracking-[0.2em] px-8 py-4 hover:bg-terra-muted transition-all duration-300 flex items-center space-x-3 border border-terra-ink"
+          <button
+            className="inline-flex items-center gap-3 bg-terra-ink text-white font-sans text-[10px] font-bold uppercase tracking-[0.22em] px-8 py-4 rounded-full hover:bg-terra-ink/80 transition-all duration-300"
             onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -904,60 +1077,79 @@ const ChatPage: React.FC<ChatPageProps> = ({
   const { language, t } = useLanguage();
   if (!scannedImageUrl) {
     return (
-      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t.noDocFound}</h2>
-        <p className="text-terra-muted mb-8 leading-relaxed">{t.chatInitSub}</p>
-        <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-terra-ink bg-terra-ink text-white hover:bg-terra-ink font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t.scanDoc}</button>
+      <div className="max-w-2xl mx-auto px-6 py-28 text-center animate-fade-up">
+        <h2 className="text-2xl md:text-3xl font-serif font-light tracking-tight text-terra-ink mb-4">
+          {t.noDocFound}
+        </h2>
+        <p className="text-terra-muted mb-10 leading-loose font-light">{t.chatInitSub}</p>
+        <button
+          onClick={() => navigateTo("upload")}
+          className="inline-flex items-center px-8 py-4 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-ink/80 transition-colors"
+        >
+          {t.scanDoc}
+        </button>
       </div>
     );
   }
 
   return (
     <div className="animate-fade-up max-w-4xl mx-auto px-6 py-4 flex flex-col h-[calc(100vh-280px)] min-h-[450px] relative z-10">
-      <div className="flex justify-between items-center mb-4">
-        <button onClick={() => navigateTo("results")} className="flex items-center text-xs text-terra-muted hover:text-terra-ink transition-colors group w-fit">
+      <div className="flex justify-between items-center mb-5">
+        <button
+          onClick={() => navigateTo("results")}
+          className="flex items-center text-[10px] font-bold uppercase tracking-[0.2em] text-terra-muted hover:text-terra-ink transition-colors group"
+        >
           <ArrowLeft className="w-3.5 h-3.5 mr-1.5 group-hover:-translate-x-0.5 transition-transform" /> {t.backResults}
         </button>
       </div>
 
-      <div className="bg-white border border-terra-ink rounded-none flex flex-col flex-1 overflow-hidden shadow-2xl">
-        <div className="bg-terra-ink text-white p-4 flex justify-between items-center shrink-0 border-b border-white/10">
+      <div className="bg-white/70 backdrop-blur-xl border border-terra-border rounded-3xl flex flex-col flex-1 overflow-hidden shadow-[0_24px_48px_-12px_rgba(0,0,0,0.08)]">
+        {/* Chat header */}
+        <div className="bg-terra-ink text-white px-6 py-4 flex justify-between items-center shrink-0 rounded-t-3xl border-b border-white/10">
           <div>
-            <h1 className="text-[10px] font-mono uppercase tracking-widest text-terra-muted">{t.noticeAssistant}</h1>
-            <h2 className="text-lg font-bold mt-0.5">{t.chatAssistant}</h2>
+            <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-terra-bg/40">{t.noticeAssistant}</p>
+            <h2 className="text-base font-serif font-light mt-0.5">{t.chatAssistant}</h2>
           </div>
-          <div className="w-12 h-12 rounded-none overflow-hidden border border-white/20 shrink-0">
+          <div className="w-11 h-11 rounded-xl overflow-hidden border border-white/20 shrink-0">
             <img src={scannedImageUrl} alt="Scanned Document" className="w-full h-full object-cover" />
           </div>
         </div>
-        <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-terra-surface flex flex-col">
+
+        {/* Messages */}
+        <div className="flex-1 p-6 overflow-y-auto space-y-5 bg-terra-surface/30 flex flex-col">
           {chatMessages.length === 0 && (
             <div className="m-auto text-center animate-fade-up">
-              <div className="w-16 h-16 bg-white border border-terra-ink rounded-none flex items-center justify-center mx-auto mb-4">
-                <Shield305 className="w-8 h-8 text-terra-border" />
+              <div className="w-14 h-14 bg-white border border-terra-border rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Shield305 className="w-7 h-7 text-terra-muted" />
               </div>
-              <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-terra-ink mb-2">{t.howCanHelp}</h3>
-              <p className="text-sm text-terra-muted max-w-sm">{t.chatPlaceholder}</p>
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.28em] text-terra-ink mb-2">{t.howCanHelp}</h3>
+              <p className="text-sm text-terra-muted max-w-sm font-light">{t.chatPlaceholder}</p>
             </div>
           )}
           {chatMessages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-none px-5 py-4 border text-[14px] leading-relaxed ${msg.role === 'user' ? 'bg-terra-ink border-terra-ink text-white' : 'bg-white border-terra-border text-terra-ink'}`}>
+              <div className={`max-w-[80%] px-5 py-4 text-sm leading-loose font-light ${
+                msg.role === 'user'
+                  ? 'bg-terra-ink text-white rounded-2xl rounded-br-md'
+                  : 'bg-white border border-terra-border text-terra-ink rounded-2xl rounded-bl-md'
+              }`}>
                 {msg.content}
               </div>
             </div>
           ))}
           {chatLoading && (
             <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-none px-5 py-4 text-[14px] bg-white border border-terra-border text-terra-ink flex items-center space-x-3">
+              <div className="max-w-[80%] px-5 py-4 text-sm bg-white border border-terra-border text-terra-ink rounded-2xl rounded-bl-md flex items-center gap-3">
                 <Loader2 className="w-4 h-4 animate-spin text-terra-muted" />
-                <span className="text-terra-muted font-mono text-xs uppercase tracking-widest">{t.reviewingLaw}</span>
+                <span className="text-terra-muted font-mono text-[9px] uppercase tracking-[0.25em]">{t.reviewingLaw}</span>
               </div>
             </div>
           )}
         </div>
-        <div className="p-4 bg-white border-t border-terra-border shrink-0">
-          <form 
+
+        {/* Input */}
+        <div className="p-4 bg-white/80 border-t border-terra-border shrink-0 rounded-b-3xl">
+          <form
             onSubmit={async (e) => {
               e.preventDefault();
               if (!chatInput.trim() || chatLoading) return;
@@ -985,17 +1177,21 @@ const ChatPage: React.FC<ChatPageProps> = ({
               } finally {
                 setChatLoading(false);
               }
-            }} 
-            className="flex space-x-3"
+            }}
+            className="flex gap-3"
           >
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder={t.chatInputPlaceholder}
-              className="flex-1 border border-terra-ink rounded-none px-5 py-4 text-sm focus:outline-none focus:bg-terra-surface/30 transition-all font-mono"
+              className="flex-1 border border-terra-border bg-terra-surface/50 rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-terra-ink focus:bg-white transition-all font-light"
             />
-            <button type="submit" disabled={chatLoading} className="border border-terra-ink bg-terra-ink text-white px-8 py-4 rounded-none text-xs font-mono uppercase tracking-widest hover:bg-terra-ink disabled:opacity-50 transition-colors shrink-0">
+            <button
+              type="submit"
+              disabled={chatLoading}
+              className="bg-terra-ink text-white px-7 py-3.5 rounded-full text-[10px] font-bold uppercase tracking-[0.22em] hover:bg-terra-ink/80 disabled:opacity-40 transition-colors shrink-0"
+            >
               {t.sendBtn}
             </button>
           </form>
@@ -1033,52 +1229,73 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ session, navigateTo }) =>
 
   if (!session) {
     return (
-      <div className="max-w-2xl mx-auto px-6 py-24 text-center animate-fade-up">
-        <h2 className="text-xl font-bold font-mono uppercase tracking-widest mb-4">{t.signInRequired}</h2>
-        <p className="text-terra-muted mb-8 leading-relaxed">{t.historySub}</p>
-        <button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })} className="px-6 py-3 border border-terra-ink bg-terra-ink text-white hover:bg-terra-ink font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t.signInBtn}</button>
+      <div className="max-w-2xl mx-auto px-6 py-28 text-center animate-fade-up">
+        <h2 className="text-2xl md:text-3xl font-serif font-light tracking-tight text-terra-ink mb-4">
+          {t.signInRequired}
+        </h2>
+        <p className="text-terra-muted mb-10 leading-loose font-light">{t.historySub}</p>
+        <button
+          onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } })}
+          className="inline-flex items-center px-8 py-4 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-ink/80 transition-colors"
+        >
+          {t.signInBtn}
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-up max-w-5xl mx-auto px-6 py-24">
-      <div className="flex items-center justify-between mb-12">
-        <h1 className="text-4xl font-bold tracking-tight text-terra-ink flex items-center">
-          <LayoutDashboard className="w-8 h-8 mr-4" />
+    <div className="animate-fade-up max-w-5xl mx-auto px-6 py-20">
+      <div className="flex items-center gap-4 mb-14">
+        <LayoutDashboard className="w-6 h-6 text-terra-muted stroke-[1.5]" />
+        <h1 className="text-3xl md:text-4xl font-serif font-light tracking-tight text-terra-ink">
           {t.yourScans}
         </h1>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-terra-border" /></div>
+        <div className="flex justify-center py-24">
+          <RefreshCw className="w-6 h-6 animate-spin text-terra-muted" />
+        </div>
       ) : scans.length === 0 ? (
-        <div className="text-center py-20 bg-terra-surface/20 border border-terra-border rounded-none animate-fade-up">
-          <p className="text-terra-muted mb-4">{t.noScansYet}</p>
-          <button onClick={() => navigateTo("upload")} className="px-6 py-3 border border-terra-ink bg-terra-ink text-white hover:bg-terra-ink font-mono text-xs uppercase tracking-widest rounded-none transition-colors">{t.scanDoc}</button>
+        <div className="text-center py-24 bg-white/50 border border-dashed border-terra-border rounded-3xl animate-fade-up backdrop-blur-sm">
+          <p className="text-terra-muted mb-8 font-light">{t.noScansYet}</p>
+          <button
+            onClick={() => navigateTo("upload")}
+            className="inline-flex items-center px-8 py-4 bg-terra-ink text-white text-[10px] font-bold uppercase tracking-[0.25em] rounded-full hover:bg-terra-ink/80 transition-colors"
+          >
+            {t.scanDoc}
+          </button>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 animate-fade-up">
+        <div className="grid gap-5 md:grid-cols-2 animate-fade-up">
           {scans.map((scan) => (
-            <button 
-              key={scan.id} 
+            <button
+              key={scan.id}
               onClick={() => {
-                // Set the result globally so ResultsPage can see it
-                // We'll need to update ShieldApp to handle this, 
-                // but for now we'll simulate the selection
                 window.dispatchEvent(new CustomEvent('select-scan', { detail: scan }));
               }}
-              className="bg-white border border-terra-border rounded-none p-6 hover:border-terra-ink transition-colors text-left group"
+              className="bg-white/70 backdrop-blur-sm border border-terra-border rounded-2xl p-7 hover:border-terra-ink hover:shadow-sm transition-all duration-300 text-left group"
             >
-              <div className="flex justify-between items-start mb-4">
-                <span className={`px-2.5 py-0.5 text-[9px] font-mono border uppercase tracking-widest rounded-none ${scan.status === "predatory" ? "bg-red-50 border-red-500 text-red-700" : scan.status === "legal" ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "bg-terra-surface border-terra-muted text-terra-ink"}`}>
+              <div className="flex justify-between items-start mb-5">
+                <span className={`inline-flex items-center px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] rounded-full border ${
+                  scan.status === "predatory"
+                    ? "bg-red-50 border-red-200 text-red-700"
+                    : scan.status === "legal"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-terra-surface border-terra-border text-terra-muted"
+                }`}>
                   {scan.status}
                 </span>
-                <span className="text-xs text-terra-muted font-mono">{new Date(scan.created_at).toLocaleDateString()}</span>
+                <span className="text-[9px] font-mono text-terra-muted tracking-wide">
+                  {new Date(scan.created_at).toLocaleDateString()}
+                </span>
               </div>
-              <p className="text-sm text-terra-muted line-clamp-3 mb-4 group-hover:text-terra-ink transition-colors">{scan.summary}</p>
+              <p className="text-sm text-terra-muted line-clamp-3 mb-5 leading-loose font-light group-hover:text-terra-ink transition-colors">
+                {scan.summary}
+              </p>
               <div className="flex justify-end">
-                <span className="text-[10px] font-mono uppercase tracking-widest text-terra-muted group-hover:text-terra-ink flex items-center gap-1">
+                <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-terra-muted group-hover:text-terra-ink flex items-center gap-1 transition-colors">
                   {t.viewResults} <ArrowRight className="w-3 h-3" />
                 </span>
               </div>
