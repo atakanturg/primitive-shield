@@ -374,18 +374,25 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
       <div>
         {/* Hero */}
         <section className="px-6 md:px-12 pt-8 pb-28 max-w-5xl mx-auto" style={{ position: 'relative' }}>
-          {/* Scan-line effect */}
-          <div aria-hidden="true" style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+          {/* Shield badge animation */}
+          <div aria-hidden="true" style={{ position: 'absolute', top: 40, right: 40, zIndex: 0, pointerEvents: 'none' }}>
             <style>{`
-              @keyframes scanline { 0%{top:10%} 100%{top:90%} }
-              @keyframes flag-pulse { 0%,100%{transform:scale(1);opacity:.7} 50%{transform:scale(1.5);opacity:1} }
+              @keyframes shield-float { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-12px)} }
+              @keyframes shield-glow { 0%,100%{opacity:.4} 50%{opacity:.8} }
             `}</style>
-            {/* Document silhouette */}
-            <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 220, height: 290, background: 'rgba(10,10,10,.04)', border: '1px solid rgba(10,10,10,.07)', borderRadius: 4, filter: 'blur(1px)' }} />
-            {/* Scan bar */}
-            <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 220, height: 2, background: 'linear-gradient(to right, transparent, oklch(0.52 0.14 28 / .45), transparent)', animation: 'scanline 3s ease-in-out infinite alternate', borderRadius: 1 }} />
-            {/* Flag dot */}
-            <div style={{ position: 'absolute', left: 'calc(50% + 60px)', top: '52%', width: 8, height: 8, borderRadius: '50%', background: 'oklch(0.52 0.14 28)', animation: 'flag-pulse 3s ease-in-out infinite' }} />
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: 'oklch(0.52 0.14 28 / .08)',
+              border: '2px solid oklch(0.52 0.14 28 / .2)',
+              animation: 'shield-float 4s ease-in-out infinite',
+            }}>
+              <div style={{
+                width: '100%', height: '100%',
+                borderRadius: '50%',
+                border: '1px solid oklch(0.52 0.14 28 / .4)',
+                animation: 'shield-glow 3s ease-in-out infinite',
+              }} />
+            </div>
           </div>
           <AmbientMesh color="oklch(0.52 0.14 28)" />
           <motion.div
@@ -621,7 +628,7 @@ export default function ShieldApp({ view: propView }: { view?: ViewState }) {
 
           <TiltCard intensity={3} style={{ display: 'block' }}>
           <form onSubmit={handleSubmit} className="space-y-5">
-            <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            <input type="file" accept="image/*,.pdf,application/pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
             {!preview ? (
               <motion.div
