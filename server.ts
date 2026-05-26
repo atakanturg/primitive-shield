@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import multer from "multer";
 import dotenv from "dotenv";
 import { createRequire } from "module";
+import rateLimit from "express-rate-limit";
 const pdfParse = createRequire(import.meta.url)("pdf-parse");
 
 dotenv.config();
@@ -11,6 +12,15 @@ dotenv.config();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// Setup Rate Limiting (5 requests per 10 minutes)
+const apiLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { error: "Too many requests from this IP, please try again after 10 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const MIAMI_LAWS = `
@@ -148,9 +158,11 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json({ limit: "50mb" }));
+  // Strict payload size limits (e.g. 5mb instead of 50mb to prevent oversized base64s from hitting the server too hard)
+  app.use(express.json({ limit: "5mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
-  app.post("/api/analyze-notice", async (req, res) => {
+  app.post("/api/analyze-notice", apiLimiter, async (req, res) => {
     try {
       const { imageUrl, language = 'English' } = req.body;
       
@@ -301,7 +313,7 @@ There must be EXACTLY 8 items in action_plan. flagged_clauses should be empty ar
     }
   });
 
-  app.post("/api/chat-notice", async (req, res) => {
+  app.post("/api/chat-notice", apiLimiter, async (req, res) => {
     try {
       const { imageUrl, messages, language = 'English' } = req.body;
       
